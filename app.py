@@ -1002,9 +1002,37 @@ def api_reader_info():
 
 # ==================== 启动 ====================
 
+@app.route('/healthz')
+def healthz():
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("SELECT COUNT(*) as cnt FROM books")
+        book_count = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) as cnt FROM readers")
+        reader_count = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) as cnt FROM users")
+        user_count = cur.fetchone()[0]
+        db.close()
+        return jsonify({
+            'status': 'ok',
+            'database': 'MySQL' if USE_MYSQL else 'SQLite',
+            'books': book_count,
+            'readers': reader_count,
+            'users': user_count
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 # 模块加载时初始化数据库（gunicorn 导入时需要）
-init_db()
-init_admin_user()
+import sys
+try:
+    init_db()
+    init_admin_user()
+except Exception as e:
+    print(f"[STARTUP ERROR] {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
