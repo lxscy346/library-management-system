@@ -91,17 +91,28 @@ def get_db():
     return DB()
 
 
+def _serialize(val):
+    if isinstance(val, datetime):
+        return val.strftime('%Y-%m-%d %H:%M:%S')
+    if isinstance(val, date):
+        return val.strftime('%Y-%m-%d')
+    return val
+
+
 def fetch_all_dict(cursor):
+    rows = cursor.fetchall()
     if USE_MYSQL:
-        return cursor.fetchall()
-    return [dict(r) for r in cursor.fetchall()]
+        return [{k: _serialize(v) for k, v in r.items()} for r in rows]
+    return [dict(r) for r in rows]
 
 
 def fetch_one_dict(cursor):
-    if USE_MYSQL:
-        return cursor.fetchone()
     row = cursor.fetchone()
-    return dict(row) if row else None
+    if row is None:
+        return None
+    if USE_MYSQL:
+        return {k: _serialize(v) for k, v in row.items()}
+    return dict(row)
 
 
 # ---- 100 本样本书籍 ----
