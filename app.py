@@ -6,6 +6,7 @@
 默认使用 SQLite，设置 USE_MYSQL=1 切换 MySQL
 """
 import os
+import sys
 import sqlite3
 from datetime import datetime, timedelta
 from functools import wraps
@@ -250,8 +251,8 @@ def init_db():
     for sql in tables_sql:
         try:
             cur.execute(sql)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[INIT_DB] table error: {e}", file=sys.stderr)
 
     cur.execute(f"SELECT COUNT(*) as cnt FROM books")
     row = cur.fetchone()
