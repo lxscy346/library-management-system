@@ -45,7 +45,7 @@ class DB:
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=DELETE")
             self._conn.execute("PRAGMA foreign_keys=ON")
-            self._conn.execute("PRAGMA busy_timeout=10000")
+            self._conn.execute("PRAGMA busy_timeout=5000")
             self._conn.execute("PRAGMA synchronous=NORMAL")
             self._conn.execute("PRAGMA locking_mode=NORMAL")
         return self._conn
@@ -57,19 +57,10 @@ class DB:
         return self._conn
 
     def cursor(self):
-        return _RetryCursor(self.conn.cursor(), self)
+        return self.conn.cursor()
 
     def commit(self):
-        import time
-        for attempt in range(5):
-            try:
-                self.conn.commit()
-                return
-            except Exception as e:
-                if 'locked' in str(e).lower() and attempt < 4:
-                    time.sleep(0.3 * (attempt + 1))
-                    continue
-                raise
+        self.conn.commit()
 
 
     def close(self):
@@ -93,50 +84,8 @@ class DB:
         return 'NOW()' if self._mysql else "datetime('now','localtime')"
 
 
-class _RetryCursor:
-    """自动重试 database is locked 的游标包装器"""
-    def __init__(self, cursor, db):
-        self._cur = cursor
-        self._db = db
-
-    def execute(self, sql, params=None):
-        import time
-        for attempt in range(5):
-            try:
-                if params is not None:
-                    return self._cur.execute(sql, params)
-                return self._cur.execute(sql)
-            except Exception as e:
-                if 'locked' in str(e).lower() and attempt < 4:
-                    time.sleep(0.3 * (attempt + 1))
-                    continue
-                raise
-
-    def __getattr__(self, name):
-        return getattr(self._cur, name)
-
-
 def get_db():
     return DB()
-
-
-def db_execute(cur, sql, params=None, commit_cb=None):
-    """执行 SQL，自动重试 database is locked"""
-    import time
-    for attempt in range(5):
-        try:
-            if params:
-                cur.execute(sql, params)
-            else:
-                cur.execute(sql)
-            if commit_cb:
-                commit_cb()
-            return
-        except Exception as e:
-            if 'locked' in str(e).lower() and attempt < 4:
-                time.sleep(0.3 * (attempt + 1))
-                continue
-            raise
 
 
 def fetch_all_dict(cursor):
