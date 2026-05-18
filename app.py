@@ -981,11 +981,14 @@ def healthz():
         db = get_db()
         cur = db.cursor()
         cur.execute("SELECT COUNT(*) as cnt FROM books")
-        book_count = cur.fetchone()[0]
+        row = cur.fetchone()
+        book_count = row['cnt'] if USE_MYSQL else row[0]
         cur.execute("SELECT COUNT(*) as cnt FROM readers")
-        reader_count = cur.fetchone()[0]
+        row = cur.fetchone()
+        reader_count = row['cnt'] if USE_MYSQL else row[0]
         cur.execute("SELECT COUNT(*) as cnt FROM users")
-        user_count = cur.fetchone()[0]
+        row = cur.fetchone()
+        user_count = row['cnt'] if USE_MYSQL else row[0]
         db.close()
         return jsonify({
             'status': 'ok',
