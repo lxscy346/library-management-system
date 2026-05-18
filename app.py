@@ -27,8 +27,10 @@ if USE_MYSQL:
         'user': os.environ.get('DB_USER', 'root'),
         'password': os.environ.get('DB_PASSWORD', '123456'),
         'database': os.environ.get('DB_NAME', 'library_management'),
+        'port': int(os.environ.get('DB_PORT', '3306')),
         'charset': 'utf8mb4',
         'cursorclass': pymysql.cursors.DictCursor,
+        'ssl': {'ssl': True},
     }
 
 
