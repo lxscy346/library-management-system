@@ -8,7 +8,7 @@
 import os
 import sys
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from functools import wraps
 
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
