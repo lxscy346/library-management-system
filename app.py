@@ -45,6 +45,8 @@ class DB:
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA foreign_keys=ON")
+            self._conn.execute("PRAGMA busy_timeout=5000")
+            self._conn.execute("PRAGMA synchronous=NORMAL")
         return self._conn
 
     @property
@@ -63,6 +65,12 @@ class DB:
         if self._conn:
             self._conn.close()
             self._conn = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
     def placeholder(self):
         return '%s' if self._mysql else '?'
