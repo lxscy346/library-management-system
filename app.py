@@ -43,10 +43,11 @@ class DB:
         else:
             self._conn = sqlite3.connect(DB_PATH)
             self._conn.row_factory = sqlite3.Row
-            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA journal_mode=DELETE")
             self._conn.execute("PRAGMA foreign_keys=ON")
             self._conn.execute("PRAGMA busy_timeout=10000")
             self._conn.execute("PRAGMA synchronous=NORMAL")
+            self._conn.execute("PRAGMA locking_mode=NORMAL")
         return self._conn
 
     @property
