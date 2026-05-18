@@ -71,28 +71,6 @@ class DB:
                 raise
 
 
-class _RetryCursor:
-    """带 database is locked 自动重试的游标包装器"""
-    def __init__(self, cursor, db):
-        self._cur = cursor
-        self._db = db
-
-    def execute(self, sql, params=None):
-        import time
-        for attempt in range(5):
-            try:
-                if params is not None:
-                    return self._cur.execute(sql, params)
-                return self._cur.execute(sql)
-            except Exception as e:
-                if 'locked' in str(e).lower() and attempt < 4:
-                    time.sleep(0.3 * (attempt + 1))
-                    continue
-                raise
-
-    def __getattr__(self, name):
-        return getattr(self._cur, name)
-
     def close(self):
         if self._conn:
             self._conn.close()
@@ -112,6 +90,29 @@ class _RetryCursor:
 
     def now(self):
         return 'NOW()' if self._mysql else "datetime('now','localtime')"
+
+
+class _RetryCursor:
+    """自动重试 database is locked 的游标包装器"""
+    def __init__(self, cursor, db):
+        self._cur = cursor
+        self._db = db
+
+    def execute(self, sql, params=None):
+        import time
+        for attempt in range(5):
+            try:
+                if params is not None:
+                    return self._cur.execute(sql, params)
+                return self._cur.execute(sql)
+            except Exception as e:
+                if 'locked' in str(e).lower() and attempt < 4:
+                    time.sleep(0.3 * (attempt + 1))
+                    continue
+                raise
+
+    def __getattr__(self, name):
+        return getattr(self._cur, name)
 
 
 def get_db():
