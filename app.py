@@ -56,10 +56,42 @@ class DB:
         return self._conn
 
     def cursor(self):
-        return self.conn.cursor()
+        return _RetryCursor(self.conn.cursor(), self)
 
     def commit(self):
-        self.conn.commit()
+        import time
+        for attempt in range(5):
+            try:
+                self.conn.commit()
+                return
+            except Exception as e:
+                if 'locked' in str(e).lower() and attempt < 4:
+                    time.sleep(0.3 * (attempt + 1))
+                    continue
+                raise
+
+
+class _RetryCursor:
+    """带 database is locked 自动重试的游标包装器"""
+    def __init__(self, cursor, db):
+        self._cur = cursor
+        self._db = db
+
+    def execute(self, sql, params=None):
+        import time
+        for attempt in range(5):
+            try:
+                if params is not None:
+                    return self._cur.execute(sql, params)
+                return self._cur.execute(sql)
+            except Exception as e:
+                if 'locked' in str(e).lower() and attempt < 4:
+                    time.sleep(0.3 * (attempt + 1))
+                    continue
+                raise
+
+    def __getattr__(self, name):
+        return getattr(self._cur, name)
 
     def close(self):
         if self._conn:
@@ -84,6 +116,25 @@ class DB:
 
 def get_db():
     return DB()
+
+
+def db_execute(cur, sql, params=None, commit_cb=None):
+    """执行 SQL，自动重试 database is locked"""
+    import time
+    for attempt in range(5):
+        try:
+            if params:
+                cur.execute(sql, params)
+            else:
+                cur.execute(sql)
+            if commit_cb:
+                commit_cb()
+            return
+        except Exception as e:
+            if 'locked' in str(e).lower() and attempt < 4:
+                time.sleep(0.3 * (attempt + 1))
+                continue
+            raise
 
 
 def fetch_all_dict(cursor):
