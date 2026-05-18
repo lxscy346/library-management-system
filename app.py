@@ -235,7 +235,7 @@ def init_db():
     tables_sql = [
         f"CREATE TABLE IF NOT EXISTS users (id {_id}, username VARCHAR(50) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL, name VARCHAR(100) NOT NULL, role VARCHAR(20) NOT NULL DEFAULT 'librarian', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS books (id {_id}, isbn VARCHAR(20) NOT NULL UNIQUE, title VARCHAR(200) NOT NULL, author VARCHAR(100) NOT NULL, publisher VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2) DEFAULT 0.00, total_copies INT DEFAULT 1, available_copies INT DEFAULT 1, location VARCHAR(50), description TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
-        f"CREATE TABLE IF NOT EXISTS readers (id {_id}, reader_no VARCHAR(20) NOT NULL UNIQUE, name VARCHAR(100) NOT NULL, password VARCHAR(255) NOT NULL DEFAULT '', gender VARCHAR(10) DEFAULT '其他', phone VARCHAR(20), email VARCHAR(100), address VARCHAR(200), max_borrow INT DEFAULT 5, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS readers (id {_id}, reader_no VARCHAR(30) NOT NULL UNIQUE, name VARCHAR(100) NOT NULL, password VARCHAR(255) NOT NULL DEFAULT '', gender VARCHAR(10) DEFAULT '其他', phone VARCHAR(20), email VARCHAR(100), address VARCHAR(200), max_borrow INT DEFAULT 5, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         f"CREATE TABLE IF NOT EXISTS borrow_records (id {_id}, book_id INT NOT NULL, reader_id INT NOT NULL, borrow_date DATE NOT NULL, due_date DATE NOT NULL, return_date DATE, status VARCHAR(20) DEFAULT 'borrowed', operator_id INT, FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE, FOREIGN KEY (reader_id) REFERENCES readers(id) ON DELETE CASCADE, FOREIGN KEY (operator_id) REFERENCES users(id) ON DELETE SET NULL)",
         f"CREATE TABLE IF NOT EXISTS operation_logs (id {_id}, user_id INT, username VARCHAR(50), action VARCHAR(20) NOT NULL, book_id INT, book_title VARCHAR(200), reader_id INT, reader_name VARCHAR(100), borrow_record_id INT, detail TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL)",
     ]
@@ -253,6 +253,13 @@ def init_db():
             cur.execute(sql)
         except Exception as e:
             print(f"[INIT_DB] table error: {e}", file=sys.stderr)
+
+    if _mysql:
+        try:
+            cur.execute("ALTER TABLE readers MODIFY reader_no VARCHAR(30) NOT NULL UNIQUE")
+            db.commit()
+        except Exception:
+            pass
 
     cur.execute(f"SELECT COUNT(*) as cnt FROM books")
     row = cur.fetchone()
