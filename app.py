@@ -847,7 +847,7 @@ def api_borrow_book():
         if fetch_one_dict(cur)['cnt'] > 0: db.close(); return jsonify({'success': False, 'message': '已借过此书尚未归还'})
         today = datetime.now().date()
         due_date = today + timedelta(days=borrow_days)
-        operator_id = session.get('user_id') or session.get('reader_id')
+        operator_id = session.get('user_id')  # 仅管理员操作时记录，读者自助为 NULL
         cur.execute(f"INSERT INTO borrow_records (book_id, reader_id, borrow_date, due_date, status, operator_id) VALUES ({ph},{ph},{ph},{ph},'borrowed',{ph})",
                     (book_id, reader_id, today.strftime('%Y-%m-%d'), due_date.strftime('%Y-%m-%d'), operator_id))
         record_id = cur.lastrowid
