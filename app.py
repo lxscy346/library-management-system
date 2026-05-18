@@ -954,6 +954,11 @@ def reader_dashboard():
         cur.execute(f"SELECT * FROM readers WHERE id = {ph}", (reader_id,))
         reader_info = fetch_one_dict(cur)
 
+        if not reader_info:
+            db.close()
+            session.clear()
+            return redirect(url_for('reader_login_page'))
+
         cur.execute(f"""SELECT br.*, b.title as book_title, b.isbn as book_isbn
                        FROM borrow_records br JOIN books b ON br.book_id=b.id
                        WHERE br.reader_id = {ph} AND br.status = 'borrowed'
