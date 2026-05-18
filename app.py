@@ -254,13 +254,6 @@ def init_db():
         except Exception as e:
             print(f"[INIT_DB] table error: {e}", file=sys.stderr)
 
-    if _mysql:
-        try:
-            cur.execute("ALTER TABLE readers MODIFY reader_no VARCHAR(30) NOT NULL UNIQUE")
-            db.commit()
-        except Exception:
-            pass
-
     cur.execute(f"SELECT COUNT(*) as cnt FROM books")
     row = cur.fetchone()
     cnt = row[0] if not _mysql else row['cnt']
@@ -642,7 +635,8 @@ def api_add_reader():
         cur = db.cursor()
         ph = db.placeholder()
         if not data.get('reader_no'):
-            data['reader_no'] = f"R{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+            now = datetime.now()
+            data['reader_no'] = f"R{now.strftime('%Y%m%d%H%M%S')}{now.microsecond // 100:04d}"
         cur.execute(f"SELECT COUNT(*) as cnt FROM readers WHERE reader_no = {ph}", (data['reader_no'],))
         if fetch_one_dict(cur)['cnt'] > 0: db.close(); return jsonify({'success': False, 'message': '编号已存在'})
         cur.execute(f"INSERT INTO readers (reader_no, name, password, gender, phone, email, address, max_borrow) VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})",
@@ -867,7 +861,8 @@ def api_reader_register():
         db = get_db()
         cur = db.cursor()
         ph = db.placeholder()
-        reader_no = f"R{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+        now = datetime.now()
+        reader_no = f"R{now.strftime('%Y%m%d%H%M%S')}{now.microsecond // 100:04d}"
         cur.execute(f"INSERT INTO readers (reader_no, name, password, phone, email) VALUES ({ph},{ph},{ph},{ph},{ph})",
                     (reader_no, name, generate_password_hash(password), phone, email))
         db.commit()
