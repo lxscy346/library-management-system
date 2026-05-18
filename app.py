@@ -635,7 +635,7 @@ def api_add_reader():
         cur = db.cursor()
         ph = db.placeholder()
         if not data.get('reader_no'):
-            data['reader_no'] = f"R{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            data['reader_no'] = f"R{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
         cur.execute(f"SELECT COUNT(*) as cnt FROM readers WHERE reader_no = {ph}", (data['reader_no'],))
         if fetch_one_dict(cur)['cnt'] > 0: db.close(); return jsonify({'success': False, 'message': '编号已存在'})
         cur.execute(f"INSERT INTO readers (reader_no, name, password, gender, phone, email, address, max_borrow) VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})",
@@ -860,7 +860,7 @@ def api_reader_register():
         db = get_db()
         cur = db.cursor()
         ph = db.placeholder()
-        reader_no = f"R{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        reader_no = f"R{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
         cur.execute(f"INSERT INTO readers (reader_no, name, password, phone, email) VALUES ({ph},{ph},{ph},{ph},{ph})",
                     (reader_no, name, generate_password_hash(password), phone, email))
         db.commit()
