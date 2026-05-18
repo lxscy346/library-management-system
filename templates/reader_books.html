@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浏览图书 - 读者中心</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="reader-container">
+        <div class="reader-topbar">
+            <div class="reader-profile">
+                <div class="reader-avatar" id="avatarLetter">?</div>
+                <div>
+                    <h3 id="readerName">加载中...</h3>
+                    <div class="reader-meta" id="readerNo"></div>
+                </div>
+            </div>
+            <div class="reader-links">
+                <a href="/reader/dashboard">我的借阅</a>
+                <a href="/reader/books" class="active">浏览图书</a>
+                <a href="/reader/logout" class="logout">退出</a>
+            </div>
+        </div>
+
+        <div class="reader-search">
+            <input type="text" class="search-input" id="searchBooks" placeholder="搜索书名 / 作者 / ISBN...">
+            <select class="filter-select" id="filterCategory"><option value="">全部分类</option></select>
+            <button class="btn btn-outline btn-sm" onclick="loadBooks()">搜索</button>
+        </div>
+
+        <div class="book-grid" id="bookGrid"></div>
+        <div id="booksPagination" style="margin-top:20px;"></div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script>
+        let currentPage = 1, readerInfo = null;
+
+        async function init() {
+            const resp = await fetch('/api/reader/info');
+            const data = await resp.json();
+            if (!data.success) { window.location.href = '/reader'; return; }
+            readerInfo = data.data;
+            document.getElementById('avatarLetter').textContent = readerInfo.name[0];
+            document.getElementById('readerName').textContent = readerInfo.name;
+            document.getElementById('readerNo').textContent = `编号: ${readerInfo.reader_no} | 可借: ${readerInfo.max_borrow - readerInfo.borrowing_count}本`;
+        }
+
+        async function loadBooks(page = 1) {
+            currentPage = page;
+            const keyword = document.getElementById('searchBooks').value;
+            const category = document.getElementById('filterCategory').value;
+            const params = new URLSearchParams({ page, page_size: 12, keyword, category });
+
+            const data = await api(`/api/books?${params}`);
+            if (!data.success) { showToast(data.message, 'error'); return; }
+
+            const grid = document.getElementById('bookGrid');
+            if (data.data.length === 0) {
+                grid.innerHTML = '<div style="grid-column:1/-1;"><div class="empty-state"><p>未找到匹配的图书</p></div></div>';
+            } else {
+                grid.innerHTML = data.data.map(b => {
+                    const available = b.available_copies > 0;
+                    return `
+                    <div class="book-card">
+                        <div class="bc-cat">${esc(b.category || '未分类')}</div>
+                        <div class="bc-title">${esc(b.title)}</div>
+                        <div class="bc-author">${esc(b.author)} · ${esc(b.publisher || '')}</div>
+                        <div class="bc-meta">
+                            <span>ISBN: ${esc(b.isbn)}</span>
+                            <span>位置: ${esc(b.location || '-')}</span>
+                            <span>¥${Number(b.price).toFixed(2)}</span>
+                        </div>
+                        <div class="bc-stock ${available ? 'available' : 'unavailable'}">
+                            ${available ? `可借 ${b.available_copies}/${b.total_copies} 本` : '已全部借出'}
+                        </div>
+                        <button class="bc-btn ${available ? 'can' : 'cant'}"
+                                ${available ? `onclick="borrowBook(${b.id}, '${esc(b.title).replace(/'/g, "\\'")}')"` : 'disabled'}>
+                            ${available ? '立即借阅' : '暂无库存'}
+                        </button>
+                    </div>`;
+                }).join('');
+            }
+
+            const totalPages = Math.ceil(data.total / 12);
+            renderPagination(document.getElementById('booksPagination'), currentPage, totalPages, data.total, loadBooks);
+        }
+
+        async function borrowBook(bookId, bookTitle) {
+            if (!readerInfo) return;
+            const remaining = readerInfo.max_borrow - readerInfo.borrowing_count;
+            if (remaining <= 0) { showToast(`您的借阅数已达上限（${readerInfo.max_borrow}本），请先归还后再借`, 'error'); return; }
+            if (!confirm(`确认借阅《${bookTitle}》吗？借期30天。`)) return;
+
+            const resp = await fetch('/api/borrow', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ reader_id: readerInfo.id, book_id: bookId, borrow_days: 30 })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                showToast('借阅成功！请在30天内归还');
+                init(); loadBooks(currentPage);
+            } else {
+                showToast(data.message, 'error');
+            }
+        }
+
+        async function loadCategories() {
+            const data = await api('/api/categories');
+            if (data.success) {
+                const sel = document.getElementById('filterCategory');
+                data.data.forEach(c => { if (c) sel.innerHTML += `<option value="${esc(c)}">${esc(c)}</option>`; });
+            }
+        }
+
+        init();
+        loadCategories();
+        loadBooks();
+    </script>
+</body>
+</html>

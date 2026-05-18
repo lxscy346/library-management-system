@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}借阅管理 - 图书馆管理系统{% endblock %}
+{% set active_page = 'borrow' %}
+{% block page_title %}借阅管理{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header"><span class="panel-title">快捷借阅</span></div>
+    <div class="quick-actions">
+        <span class="quick-hint">⚡ 快速操作</span>
+        <select class="filter-select" id="quickReader" style="min-width:180px;"><option value="">选择读者...</option></select>
+        <select class="filter-select" id="quickBook" style="min-width:240px;"><option value="">选择图书（显示库存）...</option></select>
+        <input type="number" value="30" min="1" max="365" id="quickDays" style="width:72px;padding:10px 8px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;text-align:center;" title="借阅天数">
+        <span style="font-size:13px;color:var(--gray-500);">天</span>
+        <button class="btn btn-success" onclick="quickBorrow()">确认借阅</button>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header tab-bar">
+        <button class="tab-btn active" id="tabActiveBtn" onclick="switchTab('active')">在借 / 逾期</button>
+        <button class="tab-btn" id="tabHistoryBtn" onclick="switchTab('history')">归还历史</button>
+        <button class="tab-btn" id="tabLogsBtn" onclick="switchTab('logs')">操作日志</button>
+    </div>
+
+    <div id="tabActiveContent">
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <input type="text" class="search-input" id="searchBorrow" placeholder="搜索书名 / 读者 / ISBN...">
+                <select class="filter-select" id="filterStatus"><option value="">全部在借</option><option value="borrowed">借阅中</option><option value="overdue">已逾期</option></select>
+            </div>
+        </div>
+        <div class="panel-body" style="overflow-x:auto;">
+            <table class="data-table">
+                <thead><tr><th>图书名称</th><th>ISBN</th><th>借阅读者</th><th>读者编号</th><th>借阅日期</th><th>应还日期</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody id="activeTbody"><tr><td colspan="8"><div class="empty-state"><p>加载中...</p></div></td></tr></tbody>
+            </table>
+        </div>
+        <div id="activePagination"></div>
+    </div>
+
+    <div id="tabHistoryContent" style="display:none;">
+        <div class="toolbar">
+            <div class="toolbar-left"><input type="text" class="search-input" id="searchHistory" placeholder="搜索已归还记录..."></div>
+        </div>
+        <div class="panel-body" style="overflow-x:auto;">
+            <table class="data-table">
+                <thead><tr><th>图书名称</th><th>借阅读者</th><th>借阅日期</th><th>应还日期</th><th>归还日期</th><th>是否逾期</th></tr></thead>
+                <tbody id="historyTbody"><tr><td colspan="6"><div class="empty-state"><p>加载中...</p></div></td></tr></tbody>
+            </table>
+        </div>
+        <div id="historyPagination"></div>
+    </div>
+
+    <div id="tabLogsContent" style="display:none;">
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <select class="filter-select" id="filterLogAction"><option value="">全部操作</option><option value="borrow">借书</option><option value="return">还书</option><option value="add_book">添加图书</option><option value="edit_book">编辑图书</option><option value="delete_book">删除图书</option></select>
+            </div>
+        </div>
+        <div class="panel-body" style="overflow-x:auto;">
+            <table class="data-table">
+                <thead><tr><th>时间</th><th>操作人</th><th>类型</th><th>详情</th></tr></thead>
+                <tbody id="logsTbody"><tr><td colspan="4"><div class="empty-state"><p>加载中...</p></div></td></tr></tbody>
+            </table>
+        </div>
+        <div id="logsPagination"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentTab='active', activePage=1, historyPage=1, logsPage=1; const pageSize=10;
+
+function switchTab(tab) {
+    currentTab=tab;
+    ['active','history','logs'].forEach(t => {
+        const btn=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)+'Btn');
+        btn.classList.toggle('active', t===tab);
+    });
+    document.getElementById('tabActiveContent').style.display=tab==='active'?'':'none';
+    document.getElementById('tabHistoryContent').style.display=tab==='history'?'':'none';
+    document.getElementById('tabLogsContent').style.display=tab==='logs'?'':'none';
+    if(tab==='active') loadActive(); else if(tab==='history') loadHistory(); else loadLogs();
+}
+
+async function loadActive(page=1){
+    activePage=page;
+    const kw=document.getElementById('searchBorrow').value, st=document.getElementById('filterStatus').value;
+    const data=await api(`/api/borrow?${new URLSearchParams({page,page_size:pageSize,keyword:kw,status:st})}`);
+    if(!data.success){showToast(data.message,'error');return;}
+    const tbody=document.getElementById('activeTbody');
+    if(data.data.length===0) tbody.innerHTML='<tr><td colspan="8"><div class="empty-state"><p>暂无在借记录</p></div></td></tr>';
+    else tbody.innerHTML=data.data.map(r=>`<tr>
+        <td><strong>${esc(r.book_title)}</strong></td><td><span class="text-mono">${esc(r.book_isbn)}</span></td>
+        <td>${esc(r.reader_name)}</td><td><span class="text-mono">${esc(r.reader_no)}</span></td>
+        <td>${r.borrow_date}</td><td>${r.due_date}</td>
+        <td>${r.status==='overdue'?'<span class="badge badge-overdue">已逾期</span>':'<span class="badge badge-borrowed">借阅中</span>'}</td>
+        <td><button class="btn btn-success btn-xs" onclick="returnBook(${r.id})">归还</button></td>
+    </tr>`).join('');
+    renderPagination(document.getElementById('activePagination'),activePage,Math.ceil(data.total/pageSize),data.total,loadActive);
+}
+
+async function loadHistory(page=1){
+    historyPage=page;
+    const kw=document.getElementById('searchHistory').value;
+    const data=await api(`/api/borrow?${new URLSearchParams({page,page_size:pageSize,keyword:kw,status:'returned'})}`);
+    if(!data.success){showToast(data.message,'error');return;}
+    const tbody=document.getElementById('historyTbody');
+    if(data.data.length===0) tbody.innerHTML='<tr><td colspan="6"><div class="empty-state"><p>暂无归还记录</p></div></td></tr>';
+    else tbody.innerHTML=data.data.map(r=>{
+        const ov=r.due_date&&r.return_date&&r.return_date>r.due_date;
+        return `<tr><td><strong>${esc(r.book_title)}</strong></td><td>${esc(r.reader_name)}</td>
+        <td>${r.borrow_date}</td><td>${r.due_date}</td><td>${r.return_date||'-'}</td>
+        <td>${ov?'<span class="badge badge-overdue">逾期归还</span>':'<span class="badge badge-returned">按期归还</span>'}</td></tr>`;
+    }).join('');
+    renderPagination(document.getElementById('historyPagination'),historyPage,Math.ceil(data.total/pageSize),data.total,loadHistory);
+}
+
+async function loadLogs(page=1){
+    logsPage=page;
+    const action=document.getElementById('filterLogAction').value;
+    const data=await api(`/api/logs?${new URLSearchParams({page,page_size:pageSize,action})}`);
+    if(!data.success){showToast(data.message,'error');return;}
+    const tbody=document.getElementById('logsTbody');
+    if(data.data.length===0) tbody.innerHTML='<tr><td colspan="4"><div class="empty-state"><p>暂无操作日志</p></div></td></tr>';
+    else tbody.innerHTML=data.data.map(log=>{
+        let b=''; switch(log.action){
+            case'borrow':b='badge-borrowed">借书';break; case'return':b='badge-returned">还书';break;
+            case'add_book':b='badge-add">添加';break; case'edit_book':b='badge-edit">编辑';break;
+            case'delete_book':b='badge-delete">删除';break; default:b='badge-default">'+esc(log.action);
+        }
+        return `<tr><td style="white-space:nowrap;font-size:13px;">${(log.created_at||'').substring(0,19)}</td>
+        <td>${esc(log.username||'-')}</td><td><span class="badge ${b}</span></td>
+        <td style="font-size:13px;">${esc(log.detail||'-')}</td></tr>`;
+    }).join('');
+    renderPagination(document.getElementById('logsPagination'),logsPage,Math.ceil(data.total/pageSize),data.total,loadLogs);
+}
+
+async function loadQuickSelects(){
+    const rd=await api('/api/readers?page=1&page_size=200');
+    if(rd.success){const s=document.getElementById('quickReader');rd.data.forEach(r=>{s.innerHTML+=`<option value="${r.id}">${esc(r.name)} (${esc(r.reader_no)})</option>`;});}
+    const bd=await api('/api/books?page=1&page_size=200');
+    if(bd.success){const s=document.getElementById('quickBook');bd.data.forEach(b=>{s.innerHTML+=`<option value="${b.id}" ${b.available_copies<=0?'disabled':''}>${esc(b.title)} [${b.available_copies}/${b.total_copies}]</option>`;});}
+}
+
+async function quickBorrow(){
+    const ri=document.getElementById('quickReader').value, bi=document.getElementById('quickBook').value;
+    const days=parseInt(document.getElementById('quickDays').value)||30;
+    if(!ri)return showToast('请选择读者','error'); if(!bi)return showToast('请选择图书','error');
+    if(days<1||days>365)return showToast('借阅天数1~365','error');
+    const data=await api('/api/borrow',{method:'POST',body:JSON.stringify({reader_id:parseInt(ri),book_id:parseInt(bi),borrow_days:days})});
+    showToast(data.message,data.success?'success':'error');
+    if(data.success){loadActive();loadQuickSelects();document.getElementById('quickReader').value='';document.getElementById('quickBook').value='';}
+}
+
+async function returnBook(id){if(!confirm('确认归还？'))return;const data=await api(`/api/return/${id}`,{method:'POST'});showToast(data.message,data.success?'success':'error');if(data.success){loadActive();loadQuickSelects();}}
+
+document.getElementById('searchBorrow').addEventListener('input',debounce(()=>loadActive(),300));
+document.getElementById('filterStatus').addEventListener('change',()=>loadActive());
+document.getElementById('searchHistory').addEventListener('input',debounce(()=>loadHistory(),300));
+document.getElementById('filterLogAction').addEventListener('change',()=>loadLogs());
+
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+loadActive(); loadQuickSelects();
+</script>
+{% endblock %}

@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}读者管理 - 图书馆管理系统{% endblock %}
+{% set active_page = 'readers' %}
+{% block page_title %}读者管理{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <input type="text" class="search-input" id="searchReaders" placeholder="搜索姓名 / 编号 / 手机号...">
+        </div>
+        <button class="btn btn-primary" onclick="openAddModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            添加读者
+        </button>
+    </div>
+    <div class="panel-body" style="overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>读者编号</th>
+                    <th>姓名</th>
+                    <th>性别</th>
+                    <th>手机号</th>
+                    <th>邮箱</th>
+                    <th>地址</th>
+                    <th>借阅上限</th>
+                    <th>当前借阅</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="readersTbody">
+                <tr><td colspan="9" style="text-align:center; padding: 40px; color: var(--text-light);">加载中...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div id="readersPagination"></div>
+</div>
+
+<!-- 添加/编辑读者模态框 -->
+<div class="modal-overlay" id="readerModal" style="display:none;">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="readerModalTitle">添加读者</h3>
+            <button class="modal-close" onclick="closeModal('readerModal')">&times;</button>
+        </div>
+        <form id="readerForm">
+            <input type="hidden" id="readerId">
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>读者编号</label>
+                        <input type="text" id="readerNo" placeholder="留空自动生成">
+                        <div class="form-hint">留空将自动生成编号</div>
+                    </div>
+                    <div class="form-group">
+                        <label>姓名 *</label>
+                        <input type="text" id="readerName" required placeholder="请输入姓名">
+                    </div>
+                    <div class="form-group">
+                        <label>性别</label>
+                        <select id="readerGender">
+                            <option value="男">男</option>
+                            <option value="女">女</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>手机号</label>
+                        <input type="text" id="readerPhone" placeholder="请输入手机号">
+                    </div>
+                    <div class="form-group">
+                        <label>邮箱</label>
+                        <input type="email" id="readerEmail" placeholder="请输入邮箱">
+                    </div>
+                    <div class="form-group">
+                        <label>最大借阅数</label>
+                        <input type="number" id="readerMaxBorrow" value="5" min="1" max="20">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>地址</label>
+                        <input type="text" id="readerAddress" placeholder="请输入地址">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('readerModal')">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentPage = 1;
+    const pageSize = 10;
+
+    async function loadReaders(page = 1) {
+        currentPage = page;
+        const keyword = document.getElementById('searchReaders').value;
+        const params = new URLSearchParams({ page, page_size: pageSize, keyword });
+
+        const data = await api(`/api/readers?${params}`);
+        if (!data.success) {
+            showToast(data.message, 'error');
+            return;
+        }
+
+        const tbody = document.getElementById('readersTbody');
+        if (data.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><p>暂无读者数据</p></div></td></tr>';
+        } else {
+            tbody.innerHTML = data.data.map(r => `
+                <tr>
+                    <td><span class="text-mono">${esc(r.reader_no)}</span></td>
+                    <td><strong>${esc(r.name)}</strong></td>
+                    <td>${esc(r.gender)}</td>
+                    <td>${esc(r.phone || '-')}</td>
+                    <td>${esc(r.email || '-')}</td>
+                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.address||'')}">${esc(r.address||'-')}</td>
+                    <td>${r.max_borrow} 本</td>
+                    <td>
+                        <span style="font-weight:600; color:${r.borrowing_count >= r.max_borrow ? 'var(--danger)' : 'var(--success)'}">
+                            ${r.borrowing_count}
+                        </span> / ${r.max_borrow}
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn btn-outline btn-sm" onclick="openEditModal(${r.id})">编辑</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteReader(${r.id})">删除</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        const totalPages = Math.ceil(data.total / pageSize);
+        renderPagination(document.getElementById('readersPagination'), currentPage, totalPages, data.total, loadReaders);
+    }
+
+    function openAddModal() {
+        document.getElementById('readerModalTitle').textContent = '添加读者';
+        document.getElementById('readerForm').reset();
+        document.getElementById('readerId').value = '';
+        openModal('readerModal');
+    }
+
+    async function openEditModal(id) {
+        const data = await api(`/api/readers?keyword=&page=1&page_size=100`);
+        if (data.success) {
+            const reader = data.data.find(r => r.id === id);
+            if (reader) {
+                document.getElementById('readerModalTitle').textContent = '编辑读者';
+                document.getElementById('readerId').value = reader.id;
+                document.getElementById('readerNo').value = reader.reader_no;
+                document.getElementById('readerName').value = reader.name;
+                document.getElementById('readerGender').value = reader.gender;
+                document.getElementById('readerPhone').value = reader.phone || '';
+                document.getElementById('readerEmail').value = reader.email || '';
+                document.getElementById('readerMaxBorrow').value = reader.max_borrow;
+                document.getElementById('readerAddress').value = reader.address || '';
+                openModal('readerModal');
+            }
+        }
+    }
+
+    async function deleteReader(id) {
+        if (!confirm('确定要删除该读者吗？')) return;
+        const data = await api(`/api/readers/${id}`, { method: 'DELETE' });
+        if (data.success) {
+            showToast('删除成功');
+            loadReaders(currentPage);
+        } else {
+            showToast(data.message, 'error');
+        }
+    }
+
+    document.getElementById('readerForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const id = document.getElementById('readerId').value;
+        const body = {
+            reader_no: document.getElementById('readerNo').value.trim(),
+            name: document.getElementById('readerName').value.trim(),
+            gender: document.getElementById('readerGender').value,
+            phone: document.getElementById('readerPhone').value.trim(),
+            email: document.getElementById('readerEmail').value.trim(),
+            address: document.getElementById('readerAddress').value.trim(),
+            max_borrow: parseInt(document.getElementById('readerMaxBorrow').value) || 5,
+        };
+
+        const url = id ? `/api/readers/${id}` : '/api/readers';
+        const method = id ? 'PUT' : 'POST';
+        const data = await api(url, { method, body: JSON.stringify(body) });
+
+        if (data.success) {
+            showToast(id ? '更新成功' : '添加成功');
+            closeModal('readerModal');
+            loadReaders(currentPage);
+        } else {
+            showToast(data.message, 'error');
+        }
+    });
+
+    document.getElementById('searchReaders').addEventListener('input', debounce(() => loadReaders(), 300));
+
+    loadReaders();
+</script>
+{% endblock %}

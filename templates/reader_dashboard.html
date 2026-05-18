@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的图书馆 - 读者中心</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="reader-container">
+        <div class="reader-topbar">
+            <div class="reader-profile">
+                <div class="reader-avatar">{{ reader.name[0] }}</div>
+                <div>
+                    <h3>{{ reader.name }}</h3>
+                    <div class="reader-meta">编号: {{ reader.reader_no }} &nbsp;|&nbsp; 借阅上限: {{ reader.max_borrow }}本</div>
+                </div>
+            </div>
+            <div class="reader-links">
+                <a href="/reader/dashboard" class="active">我的借阅</a>
+                <a href="/reader/books">浏览图书</a>
+                <a href="/reader/logout" class="logout">退出</a>
+            </div>
+        </div>
+
+        <div class="reader-stats">
+            <div class="rstat">
+                <div class="stat-icon borrowing" style="flex-shrink:0;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                </div>
+                <div><div class="rstat-num">{{ borrowing_count }}</div><div class="rstat-lbl">当前借阅</div></div>
+            </div>
+            <div class="rstat">
+                <div class="stat-icon overdue" style="flex-shrink:0;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <div><div class="rstat-num">{{ reader.max_borrow - borrowing_count }}</div><div class="rstat-lbl">可借余量</div></div>
+            </div>
+            <div class="rstat">
+                <div class="stat-icon books" style="flex-shrink:0;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div><div class="rstat-num">{{ all_records|length }}</div><div class="rstat-lbl">总借阅记录</div></div>
+            </div>
+        </div>
+
+        <div style="margin-top:20px;">
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">当前在借图书</span></div>
+                <div class="panel-body" style="overflow-x:auto;">
+                    {% if active_borrows %}
+                    <table class="data-table">
+                        <thead><tr><th>书名</th><th>借阅日期</th><th>应还日期</th><th>状态</th><th>操作</th></tr></thead>
+                        <tbody>
+                        {% for r in active_borrows %}
+                        <tr>
+                            <td><strong>{{ r.book_title }}</strong></td>
+                            <td>{{ r.borrow_date }}</td>
+                            <td>{{ r.due_date }}</td>
+                            <td>
+                                {% if r.status == 'overdue' %}
+                                <span class="badge badge-overdue">已逾期</span>
+                                {% else %}
+                                <span class="badge badge-borrowed">借阅中</span>
+                                {% endif %}
+                            </td>
+                            <td><button class="btn btn-success btn-sm" onclick="returnBook({{ r.id }})">归还</button></td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="empty-state"><p>暂无在借图书，去<a href="/reader/books">浏览图书</a>吧</p></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top:20px;">
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">借阅历史</span></div>
+                <div class="panel-body" style="overflow-x:auto;">
+                    {% if all_records %}
+                    <table class="data-table">
+                        <thead><tr><th>书名</th><th>借阅日期</th><th>应还日期</th><th>归还日期</th><th>状态</th></tr></thead>
+                        <tbody>
+                        {% for r in all_records %}
+                        <tr>
+                            <td><strong>{{ r.book_title }}</strong></td>
+                            <td>{{ r.borrow_date }}</td>
+                            <td>{{ r.due_date }}</td>
+                            <td>{{ r.return_date or '-' }}</td>
+                            <td>
+                                {% if r.status == 'borrowed' %}
+                                <span class="badge badge-borrowed">借阅中</span>
+                                {% elif r.status == 'overdue' %}
+                                <span class="badge badge-overdue">已逾期</span>
+                                {% else %}
+                                <span class="badge badge-returned">已归还</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="empty-state"><p>暂无借阅记录</p></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script>
+        async function returnBook(recordId) {
+            if (!confirm('确认归还该图书吗？')) return;
+            const resp = await fetch(`/api/return/${recordId}`, { method: 'POST', headers: {'Content-Type': 'application/json'} });
+            const data = await resp.json();
+            if (data.success) { showToast('归还成功'); location.reload(); }
+            else showToast(data.message, 'error');
+        }
+    </script>
+</body>
+</html>

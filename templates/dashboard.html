@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}仪表盘 - 图书馆管理系统{% endblock %}
+{% set active_page = 'dashboard' %}
+{% block page_title %}仪表盘{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card books">
+        <div class="stat-icon books">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value">{{ book_count }}</div>
+            <div class="stat-label">馆藏图书总量</div>
+        </div>
+    </div>
+    <div class="stat-card readers">
+        <div class="stat-icon readers">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value">{{ reader_count }}</div>
+            <div class="stat-label">注册读者总数</div>
+        </div>
+    </div>
+    <div class="stat-card borrowing">
+        <div class="stat-icon borrowing">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value">{{ borrowing_count }}</div>
+            <div class="stat-label">当前借出中</div>
+        </div>
+    </div>
+    <div class="stat-card overdue">
+        <div class="stat-icon overdue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value">{{ overdue_count }}</div>
+            <div class="stat-label">逾期未归还</div>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <span class="panel-title">最近借阅记录</span>
+        <a href="/borrow" class="btn btn-outline btn-sm">查看全部 →</a>
+    </div>
+    <div class="panel-body" style="overflow-x:auto;">
+        <table class="data-table">
+            <thead><tr><th>图书名称</th><th>借阅读者</th><th>借阅日期</th><th>应还日期</th><th>归还日期</th><th>状态</th></tr></thead>
+            <tbody>
+                {% if recent_records %}
+                {% for r in recent_records %}
+                <tr>
+                    <td><strong>{{ r.book_title }}</strong></td>
+                    <td>{{ r.reader_name }}</td>
+                    <td>{{ r.borrow_date }}</td>
+                    <td>{{ r.due_date }}</td>
+                    <td>{{ r.return_date or '-' }}</td>
+                    <td>
+                        {% if r.status == 'borrowed' %}<span class="badge badge-borrowed">借阅中</span>
+                        {% elif r.status == 'overdue' %}<span class="badge badge-overdue">已逾期</span>
+                        {% else %}<span class="badge badge-returned">已归还</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}<tr><td colspan="6"><div class="empty-state"><p>暂无借阅记录</p></div></td></tr>{% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header"><span class="panel-title">最近操作日志</span></div>
+    <div class="panel-body" style="overflow-x:auto;">
+        <table class="data-table">
+            <thead><tr><th>时间</th><th>操作人</th><th>类型</th><th>详情</th></tr></thead>
+            <tbody>
+                {% if recent_logs %}
+                {% for log in recent_logs %}
+                <tr>
+                    <td style="white-space:nowrap;font-size:13px;">{{ log.created_at[:19] if log.created_at else '-' }}</td>
+                    <td>{{ log.username or '-' }}</td>
+                    <td>
+                        {% if log.action == 'borrow' %}<span class="badge badge-borrowed">借书</span>
+                        {% elif log.action == 'return' %}<span class="badge badge-returned">还书</span>
+                        {% elif log.action == 'add_book' %}<span class="badge badge-add">添加图书</span>
+                        {% elif log.action == 'edit_book' %}<span class="badge badge-edit">编辑图书</span>
+                        {% elif log.action == 'delete_book' %}<span class="badge badge-delete">删除图书</span>
+                        {% else %}<span class="badge badge-default">{{ log.action }}</span>{% endif %}
+                    </td>
+                    <td style="font-size:13px;">{{ log.detail or '-' }}</td>
+                </tr>
+                {% endfor %}
+                {% else %}<tr><td colspan="4"><div class="empty-state"><p>暂无操作记录</p></div></td></tr>{% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

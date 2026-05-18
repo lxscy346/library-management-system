@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}图书管理 - 图书馆管理系统{% endblock %}
+{% set active_page = 'books' %}
+{% block page_title %}图书管理{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <input type="text" class="search-input" id="searchBooks" placeholder="搜索书名 / 作者 / ISBN...">
+            <select class="filter-select" id="filterCategory"><option value="">全部分类</option></select>
+        </div>
+        <button class="btn btn-primary" onclick="openAddModal()">+ 添加图书</button>
+    </div>
+    <div class="panel-body" style="overflow-x:auto;">
+        <table class="data-table">
+            <thead><tr><th>ISBN</th><th>书名</th><th>作者</th><th>出版社</th><th>分类</th><th>价格</th><th>库存</th><th>位置</th><th>操作</th></tr></thead>
+            <tbody id="booksTbody"><tr><td colspan="9"><div class="empty-state"><p>加载中...</p></div></td></tr></tbody>
+        </table>
+    </div>
+    <div id="booksPagination"></div>
+</div>
+
+<div class="modal-overlay" id="bookModal" style="display:none;">
+    <div class="modal">
+        <div class="modal-header"><h3 id="bookModalTitle">添加图书</h3><button class="modal-close" onclick="closeModal('bookModal')">&times;</button></div>
+        <form id="bookForm"><input type="hidden" id="bookId">
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group"><label>ISBN *</label><input type="text" id="bookIsbn" required placeholder="请输入ISBN号"></div>
+                    <div class="form-group"><label>书名 *</label><input type="text" id="bookTitle" required placeholder="请输入书名"></div>
+                    <div class="form-group"><label>作者 *</label><input type="text" id="bookAuthor" required placeholder="请输入作者"></div>
+                    <div class="form-group"><label>出版社</label><input type="text" id="bookPublisher" placeholder="请输入出版社"></div>
+                    <div class="form-group"><label>分类</label><input type="text" id="bookCategory" placeholder="如：计算机科学" list="categoryList"><datalist id="categoryList"></datalist></div>
+                    <div class="form-group"><label>价格 (元)</label><input type="number" id="bookPrice" step="0.01" value="0.00"></div>
+                    <div class="form-group"><label>总册数</label><input type="number" id="bookTotalCopies" value="1" min="1"></div>
+                    <div class="form-group"><label>馆藏位置</label><input type="text" id="bookLocation" placeholder="如：A区-01-01"></div>
+                    <div class="form-group full-width"><label>图书简介</label><textarea id="bookDescription" rows="3" placeholder="请输入图书简介"></textarea></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('bookModal')">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = 1; const pageSize = 10;
+
+async function loadBooks(page = 1) {
+    currentPage = page;
+    const keyword = document.getElementById('searchBooks').value;
+    const category = document.getElementById('filterCategory').value;
+    const params = new URLSearchParams({page, page_size: pageSize, keyword, category});
+    const data = await api(`/api/books?${params}`);
+    if (!data.success) { showToast(data.message, 'error'); return; }
+    const tbody = document.getElementById('booksTbody');
+    if (data.data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><p>暂无图书数据</p></div></td></tr>';
+    } else {
+        tbody.innerHTML = data.data.map(b => `
+            <tr>
+                <td><span class="text-mono">${esc(b.isbn)}</span></td>
+                <td><strong>${esc(b.title)}</strong></td><td>${esc(b.author)}</td>
+                <td>${esc(b.publisher||'-')}</td>
+                <td>${b.category?`<span class="badge badge-default">${esc(b.category)}</span>`:'-'}</td>
+                <td>¥${Number(b.price).toFixed(2)}</td>
+                <td><span style="font-weight:700;color:${b.available_copies===0?'var(--danger)':'var(--success)'}">${b.available_copies}</span> / ${b.total_copies}</td>
+                <td>${esc(b.location||'-')}</td>
+                <td><div class="actions">
+                    <button class="btn btn-outline btn-xs" onclick="openEditModal(${b.id})">编辑</button>
+                    <button class="btn btn-danger btn-xs" onclick="deleteBook(${b.id})">删除</button>
+                </div></td>
+            </tr>`).join('');
+    }
+    renderPagination(document.getElementById('booksPagination'), currentPage, Math.ceil(data.total/pageSize), data.total, loadBooks);
+}
+
+async function loadCategories() {
+    const data = await api('/api/categories');
+    if (data.success) {
+        const h = data.data.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+        document.getElementById('filterCategory').innerHTML += h;
+        document.getElementById('categoryList').innerHTML = data.data.map(c => `<option value="${esc(c)}">`).join('');
+    }
+}
+
+function openAddModal() {
+    document.getElementById('bookModalTitle').textContent = '添加图书';
+    document.getElementById('bookForm').reset(); document.getElementById('bookId').value = '';
+    openModal('bookModal');
+}
+
+async function openEditModal(id) {
+    const data = await api('/api/books?keyword=&page=1&page_size=200');
+    if (data.success) {
+        const b = data.data.find(x => x.id === id);
+        if (b) {
+            document.getElementById('bookModalTitle').textContent = '编辑图书';
+            ['bookId', 'bookIsbn', 'bookTitle', 'bookAuthor', 'bookPublisher', 'bookCategory', 'bookPrice', 'bookTotalCopies', 'bookLocation', 'bookDescription'].forEach(k => {
+                document.getElementById(k).value = b[k.replace('book','').toLowerCase()] ?? '';
+            });
+            document.getElementById('bookPrice').value = b.price;
+            document.getElementById('bookTotalCopies').value = b.total_copies;
+            openModal('bookModal');
+        }
+    }
+}
+
+async function deleteBook(id) {
+    if (!confirm('确定删除该图书吗？')) return;
+    const data = await api(`/api/books/${id}`, {method:'DELETE'});
+    showToast(data.message, data.success?'success':'error');
+    if (data.success) loadBooks(currentPage);
+}
+
+document.getElementById('bookForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const id = document.getElementById('bookId').value;
+    const body = {
+        isbn: document.getElementById('bookIsbn').value.trim(),
+        title: document.getElementById('bookTitle').value.trim(),
+        author: document.getElementById('bookAuthor').value.trim(),
+        publisher: document.getElementById('bookPublisher').value.trim(),
+        category: document.getElementById('bookCategory').value.trim(),
+        price: parseFloat(document.getElementById('bookPrice').value)||0,
+        total_copies: parseInt(document.getElementById('bookTotalCopies').value)||1,
+        location: document.getElementById('bookLocation').value.trim(),
+        description: document.getElementById('bookDescription').value.trim(),
+    };
+    const url = id ? `/api/books/${id}` : '/api/books';
+    const data = await api(url, {method: id?'PUT':'POST', body: JSON.stringify(body)});
+    showToast(data.message, data.success?'success':'error');
+    if (data.success) { closeModal('bookModal'); loadBooks(currentPage); }
+});
+
+document.getElementById('searchBooks').addEventListener('input', debounce(() => loadBooks(), 300));
+document.getElementById('filterCategory').addEventListener('change', () => loadBooks());
+
+function esc(s) { if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+loadCategories(); loadBooks();
+</script>
+{% endblock %}
