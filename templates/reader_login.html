@@ -80,6 +80,20 @@
                             <input type="text" name="name" placeholder="请输入您的真实姓名" required>
                         </div>
                         <div class="form-group">
+                            <label>性别</label>
+                            <div style="display:flex;gap:24px;padding-top:4px;">
+                                <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
+                                    <input type="radio" name="gender" value="男" style="width:auto;"> 男
+                                </label>
+                                <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
+                                    <input type="radio" name="gender" value="女" style="width:auto;"> 女
+                                </label>
+                                <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
+                                    <input type="radio" name="gender" value="其他" checked style="width:auto;"> 其他
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
                             <label>手机号</label>
                             <input type="text" name="phone" placeholder="请输入手机号">
                         </div>
@@ -135,6 +149,7 @@
             document.getElementById('registerSuccess').textContent = '';
             const body = {
                 name: this.name.value.trim(),
+                gender: this.gender.value,
                 phone: this.phone.value.trim(),
                 email: this.email.value.trim(),
                 password: this.password.value,

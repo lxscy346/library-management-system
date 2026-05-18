@@ -866,16 +866,18 @@ def api_reader_register():
     password = data.get('password', '')
     phone = data.get('phone', '').strip()
     email = data.get('email', '').strip()
+    gender = data.get('gender', '其他').strip()
     if not name or len(name) < 2: return jsonify({'success': False, 'message': '姓名至少2个字符'})
     if not password or len(password) < 4: return jsonify({'success': False, 'message': '密码至少4位'})
+    if gender not in ('男', '女', '其他'): gender = '其他'
     try:
         db = get_db()
         cur = db.cursor()
         ph = db.placeholder()
         now = datetime.now()
         reader_no = f"R{now.strftime('%Y%m%d%H%M%S')}{now.microsecond // 100:04d}"
-        cur.execute(f"INSERT INTO readers (reader_no, name, password, phone, email) VALUES ({ph},{ph},{ph},{ph},{ph})",
-                    (reader_no, name, generate_password_hash(password), phone, email))
+        cur.execute(f"INSERT INTO readers (reader_no, name, password, phone, email, gender) VALUES ({ph},{ph},{ph},{ph},{ph},{ph})",
+                    (reader_no, name, generate_password_hash(password), phone, email, gender))
         db.commit()
         reader_id = cur.lastrowid
         db.close()
