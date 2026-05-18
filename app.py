@@ -1002,14 +1002,16 @@ def api_reader_info():
 
 # ==================== 启动 ====================
 
+# 模块加载时初始化数据库（gunicorn 导入时需要）
+init_db()
+init_admin_user()
+
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
     print("=" * 50)
     print("  图书馆管理系统")
     print(f"  数据库: {'MySQL' if USE_MYSQL else 'SQLite'}")
     print("=" * 50)
-    init_db()
-    init_admin_user()
-    port = int(os.environ.get('PORT', 5000))
     print(f"  管理后台: http://localhost:{port}/login       (root / 1234)")
     print(f"  读者入口: http://localhost:{port}/reader      (自助注册)")
     print("=" * 50)
