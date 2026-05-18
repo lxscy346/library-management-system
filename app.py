@@ -221,96 +221,50 @@ def get_sample_books():
 # ---- 数据库初始化 ----
 
 def init_db():
-    if USE_MYSQL:
-        return
-
     db = get_db()
     cur = db.cursor()
+    ph = db.placeholder()
+    _mysql = USE_MYSQL
 
-    cur.executescript("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username VARCHAR(50) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL,
-            name VARCHAR(100) NOT NULL,
-            role VARCHAR(20) NOT NULL DEFAULT 'librarian',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
+    if _mysql:
+        _id = "INT AUTO_INCREMENT PRIMARY KEY"
+    else:
+        _id = "INTEGER PRIMARY KEY AUTOINCREMENT"
 
-        CREATE TABLE IF NOT EXISTS books (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            isbn VARCHAR(20) NOT NULL UNIQUE,
-            title VARCHAR(200) NOT NULL,
-            author VARCHAR(100) NOT NULL,
-            publisher VARCHAR(100),
-            category VARCHAR(50),
-            price REAL DEFAULT 0.00,
-            total_copies INTEGER DEFAULT 1,
-            available_copies INTEGER DEFAULT 1,
-            location VARCHAR(50),
-            description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
+    tables_sql = [
+        f"CREATE TABLE IF NOT EXISTS users (id {_id}, username VARCHAR(50) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL, name VARCHAR(100) NOT NULL, role VARCHAR(20) NOT NULL DEFAULT 'librarian', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS books (id {_id}, isbn VARCHAR(20) NOT NULL UNIQUE, title VARCHAR(200) NOT NULL, author VARCHAR(100) NOT NULL, publisher VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2) DEFAULT 0.00, total_copies INT DEFAULT 1, available_copies INT DEFAULT 1, location VARCHAR(50), description TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS readers (id {_id}, reader_no VARCHAR(20) NOT NULL UNIQUE, name VARCHAR(100) NOT NULL, password VARCHAR(255) NOT NULL DEFAULT '', gender VARCHAR(10) DEFAULT '其他', phone VARCHAR(20), email VARCHAR(100), address VARCHAR(200), max_borrow INT DEFAULT 5, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        f"CREATE TABLE IF NOT EXISTS borrow_records (id {_id}, book_id INT NOT NULL, reader_id INT NOT NULL, borrow_date DATE NOT NULL, due_date DATE NOT NULL, return_date DATE, status VARCHAR(20) DEFAULT 'borrowed', operator_id INT, FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE, FOREIGN KEY (reader_id) REFERENCES readers(id) ON DELETE CASCADE, FOREIGN KEY (operator_id) REFERENCES users(id) ON DELETE SET NULL)",
+        f"CREATE TABLE IF NOT EXISTS operation_logs (id {_id}, user_id INT, username VARCHAR(50), action VARCHAR(20) NOT NULL, book_id INT, book_title VARCHAR(200), reader_id INT, reader_name VARCHAR(100), borrow_record_id INT, detail TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL)",
+    ]
+    if not _mysql:
+        index_sql = [
+            "CREATE INDEX IF NOT EXISTS idx_logs_action ON operation_logs(action)",
+            "CREATE INDEX IF NOT EXISTS idx_logs_created_at ON operation_logs(created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_logs_book_id ON operation_logs(book_id)",
+            "CREATE INDEX IF NOT EXISTS idx_logs_reader_id ON operation_logs(reader_id)",
+        ]
+        tables_sql.extend(index_sql)
 
-        CREATE TABLE IF NOT EXISTS readers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            reader_no VARCHAR(20) NOT NULL UNIQUE,
-            name VARCHAR(100) NOT NULL,
-            password VARCHAR(255) NOT NULL DEFAULT '',
-            gender VARCHAR(10) DEFAULT '其他',
-            phone VARCHAR(20),
-            email VARCHAR(100),
-            address VARCHAR(200),
-            max_borrow INTEGER DEFAULT 5,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
+    for sql in tables_sql:
+        try:
+            cur.execute(sql)
+        except Exception:
+            pass
 
-        CREATE TABLE IF NOT EXISTS borrow_records (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            book_id INTEGER NOT NULL,
-            reader_id INTEGER NOT NULL,
-            borrow_date DATE NOT NULL,
-            due_date DATE NOT NULL,
-            return_date DATE,
-            status VARCHAR(20) DEFAULT 'borrowed',
-            operator_id INTEGER,
-            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
-            FOREIGN KEY (reader_id) REFERENCES readers(id) ON DELETE CASCADE,
-            FOREIGN KEY (operator_id) REFERENCES users(id) ON DELETE SET NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS operation_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            username VARCHAR(50),
-            action VARCHAR(20) NOT NULL,
-            book_id INTEGER,
-            book_title VARCHAR(200),
-            reader_id INTEGER,
-            reader_name VARCHAR(100),
-            borrow_record_id INTEGER,
-            detail TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_logs_action ON operation_logs(action);
-        CREATE INDEX IF NOT EXISTS idx_logs_created_at ON operation_logs(created_at);
-        CREATE INDEX IF NOT EXISTS idx_logs_book_id ON operation_logs(book_id);
-        CREATE INDEX IF NOT EXISTS idx_logs_reader_id ON operation_logs(reader_id);
-    """)
-
-    cur.execute("SELECT COUNT(*) as cnt FROM books")
-    if cur.fetchone()[0] == 0:
+    cur.execute(f"SELECT COUNT(*) as cnt FROM books")
+    row = cur.fetchone()
+    cnt = row[0] if not _mysql else row['cnt']
+    if cnt == 0:
         books = get_sample_books()
-        cur.executemany(
-            "INSERT INTO books (isbn, title, author, publisher, category, price, total_copies, available_copies, location) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[6], b[7]) for b in books]
-        )
+        for b in books:
+            cur.execute(
+                f"INSERT INTO books (isbn, title, author, publisher, category, price, total_copies, available_copies, location) "
+                f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})",
+                (b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[6], b[7])
+            )
 
-        # 示例读者（有密码的为自助注册用户）
         sample_readers = [
             ('R20240001', '张三', generate_password_hash('123456'), '男', '13800138001', 'zhangsan@example.com', '北京市海淀区中关村大街1号', 5),
             ('R20240002', '李四', generate_password_hash('123456'), '女', '13800138002', 'lisi@example.com', '北京市朝阳区望京街道2号', 5),
@@ -321,48 +275,49 @@ def init_db():
             ('R20240007', '吴九', generate_password_hash('123456'), '男', '13800138007', 'wujiu@example.com', '成都市武侯区天府大道7号', 3),
             ('R20240008', '郑十', generate_password_hash('123456'), '女', '13800138008', 'zhengshi@example.com', '武汉市洪山区珞喻路8号', 5),
         ]
-        cur.executemany(
-            "INSERT INTO readers (reader_no, name, password, gender, phone, email, address, max_borrow) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)", sample_readers
-        )
+        for r in sample_readers:
+            cur.execute(
+                f"INSERT INTO readers (reader_no, name, password, gender, phone, email, address, max_borrow) "
+                f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})", r
+            )
 
-        # 示例借阅记录
-        cur.execute("INSERT INTO borrow_records (book_id, reader_id, borrow_date, due_date, return_date, status) VALUES (?,?,?,?,?,?)",
+        cur.execute(f"INSERT INTO borrow_records (book_id, reader_id, borrow_date, due_date, return_date, status) VALUES ({ph},{ph},{ph},{ph},{ph},{ph})",
                     (37, 1, '2024-11-01', '2024-12-01', '2024-11-28', 'returned'))
-        cur.execute("INSERT INTO borrow_records (book_id, reader_id, borrow_date, due_date, return_date, status) VALUES (?,?,?,?,?,?)",
+        cur.execute(f"INSERT INTO borrow_records (book_id, reader_id, borrow_date, due_date, return_date, status) VALUES ({ph},{ph},{ph},{ph},{ph},{ph})",
                     (29, 2, '2024-11-10', '2024-12-10', '2024-12-05', 'returned'))
-        cur.execute("INSERT INTO borrow_records (book_id, reader_id, borrow_date, due_date, return_date, status) VALUES (?,?,?,?,?,?)",
+        cur.execute(f"INSERT INTO borrow_records (book_id, reader_id, borrow_date, due_date, return_date, status) VALUES ({ph},{ph},{ph},{ph},{ph},{ph})",
                     (71, 1, '2024-10-15', '2024-11-15', '2024-11-14', 'returned'))
-        cur.execute("INSERT INTO borrow_records (book_id, reader_id, borrow_date, due_date, status) VALUES (?,?,?,?,?)",
+        cur.execute(f"INSERT INTO borrow_records (book_id, reader_id, borrow_date, due_date, status) VALUES ({ph},{ph},{ph},{ph},{ph})",
                     (1, 3, '2024-12-01', '2024-12-31', 'borrowed'))
-        cur.execute("INSERT INTO borrow_records (book_id, reader_id, borrow_date, due_date, status) VALUES (?,?,?,?,?)",
+        cur.execute(f"INSERT INTO borrow_records (book_id, reader_id, borrow_date, due_date, status) VALUES ({ph},{ph},{ph},{ph},{ph})",
                     (71, 1, '2024-12-15', '2025-01-14', 'borrowed'))
-        cur.execute("UPDATE books SET available_copies = available_copies - 1 WHERE id = 1")
-        cur.execute("UPDATE books SET available_copies = available_copies - 1 WHERE id = 71")
+        cur.execute(f"UPDATE books SET available_copies = available_copies - 1 WHERE id = {ph}", (1,))
+        cur.execute(f"UPDATE books SET available_copies = available_copies - 1 WHERE id = {ph}", (71,))
 
         # 示例操作日志
-        cur.executemany(
-            "INSERT INTO operation_logs (user_id, username, action, book_id, book_title, reader_id, reader_name, borrow_record_id, detail, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                (None, 'root', 'borrow', 37, 'JavaScript高级程序设计（第4版）', 1, '张三', 1,
-                 '借阅: 读者「张三」借阅《JavaScript高级程序设计（第4版）》，借期2024-11-01至2024-12-01', '2024-11-01 09:15:00'),
-                (None, 'root', 'return', 37, 'JavaScript高级程序设计（第4版）', 1, '张三', 1,
-                 '归还: 读者「张三」归还《JavaScript高级程序设计（第4版）》，按期归还', '2024-11-28 14:30:00'),
-                (None, 'root', 'borrow', 29, 'Python编程：从入门到实践（第3版）', 2, '李四', 2,
-                 '借阅: 读者「李四」借阅《Python编程：从入门到实践（第3版）》', '2024-11-10 10:00:00'),
-                (None, 'root', 'return', 29, 'Python编程：从入门到实践（第3版）', 2, '李四', 2,
-                 '归还: 读者「李四」归还《Python编程：从入门到实践（第3版）》，按期归还', '2024-12-05 16:20:00'),
-                (None, 'root', 'borrow', 71, '百年孤独', 1, '张三', 3,
-                 '借阅: 读者「张三」借阅《百年孤独》', '2024-10-15 08:45:00'),
-                (None, 'root', 'return', 71, '百年孤独', 1, '张三', 3,
-                 '归还: 读者「张三」归还《百年孤独》，按期归还', '2024-11-14 11:10:00'),
-                (None, 'root', 'borrow', 1, '深入理解计算机系统（原书第3版）', 3, '王五', 4,
-                 '借阅: 读者「王五」借阅《深入理解计算机系统（原书第3版）》', '2024-12-01 15:30:00'),
-                (None, 'root', 'borrow', 71, '百年孤独', 1, '张三', 5,
-                 '借阅: 读者「张三」借阅《百年孤独》，借期2024-12-15至2025-01-14', '2024-12-15 13:00:00'),
-            ]
-        )
+        sample_logs = [
+            (None, 'root', 'borrow', 37, 'JavaScript高级程序设计（第4版）', 1, '张三', 1,
+             '借阅: 读者「张三」借阅《JavaScript高级程序设计（第4版）》，借期2024-11-01至2024-12-01', '2024-11-01 09:15:00'),
+            (None, 'root', 'return', 37, 'JavaScript高级程序设计（第4版）', 1, '张三', 1,
+             '归还: 读者「张三」归还《JavaScript高级程序设计（第4版）》，按期归还', '2024-11-28 14:30:00'),
+            (None, 'root', 'borrow', 29, 'Python编程：从入门到实践（第3版）', 2, '李四', 2,
+             '借阅: 读者「李四」借阅《Python编程：从入门到实践（第3版）》', '2024-11-10 10:00:00'),
+            (None, 'root', 'return', 29, 'Python编程：从入门到实践（第3版）', 2, '李四', 2,
+             '归还: 读者「李四」归还《Python编程：从入门到实践（第3版）》，按期归还', '2024-12-05 16:20:00'),
+            (None, 'root', 'borrow', 71, '百年孤独', 1, '张三', 3,
+             '借阅: 读者「张三」借阅《百年孤独》', '2024-10-15 08:45:00'),
+            (None, 'root', 'return', 71, '百年孤独', 1, '张三', 3,
+             '归还: 读者「张三」归还《百年孤独》，按期归还', '2024-11-14 11:10:00'),
+            (None, 'root', 'borrow', 1, '深入理解计算机系统（原书第3版）', 3, '王五', 4,
+             '借阅: 读者「王五」借阅《深入理解计算机系统（原书第3版）》', '2024-12-01 15:30:00'),
+            (None, 'root', 'borrow', 71, '百年孤独', 1, '张三', 5,
+             '借阅: 读者「张三」借阅《百年孤独》，借期2024-12-15至2025-01-14', '2024-12-15 13:00:00'),
+        ]
+        for log in sample_logs:
+            cur.execute(
+                f"INSERT INTO operation_logs (user_id, username, action, book_id, book_title, reader_id, reader_name, borrow_record_id, detail, created_at) "
+                f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})", log
+            )
 
     db.commit()
     db.close()
