@@ -1,175 +1,238 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>读者入口 - 图书馆管理系统</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <style>
-        body { background: linear-gradient(135deg, #E8ECFF 0%, #F0F2F8 50%, #DBEAFE 100%); min-height: 100vh; }
-        .reader-auth-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-        .reader-auth-card {
-            background: white; border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.1);
-            width: 100%; max-width: 440px; overflow: hidden;
-        }
-        .auth-tabs { display: flex; border-bottom: 2px solid #F1F5F9; }
-        .auth-tab {
-            flex: 1; padding: 18px; border: none; background: none; font-size: 16px;
-            font-weight: 600; cursor: pointer; transition: all 0.2s; color: #94A3B8;
-            position: relative;
-        }
-        .auth-tab.active { color: #4F6EF7; }
-        .auth-tab.active::after {
-            content: ''; position: absolute; bottom: -2px; left: 20%; right: 20%;
-            height: 3px; background: #4F6EF7; border-radius: 3px;
-        }
-        .auth-body { padding: 32px 36px; }
-        .auth-body h3 { font-size: 20px; margin-bottom: 24px; color: #1E293B; }
-        .auth-body .form-group { margin-bottom: 18px; }
-        .auth-body label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; color: #334155; }
-        .auth-body input {
-            width: 100%; padding: 12px 14px; border: 2px solid #E2E8F0; border-radius: 10px;
-            font-size: 15px; outline: none; transition: all 0.2s; background: #F8FAFC;
-        }
-        .auth-body input:focus { border-color: #4F6EF7; box-shadow: 0 0 0 3px #E8ECFF; background: white; }
-        .auth-body .btn-auth {
-            width: 100%; padding: 13px; background: #4F6EF7; color: white; border: none;
-            border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer;
-            margin-top: 8px; transition: all 0.2s;
-        }
-        .auth-body .btn-auth:hover { background: #3B54D4; box-shadow: 0 8px 24px rgba(79,110,247,0.3); }
-        .auth-error { color: #EF4444; font-size: 13px; text-align: center; margin-top: 12px; min-height: 20px; }
-        .auth-success { color: #10B981; font-size: 13px; text-align: center; margin-top: 12px; min-height: 20px; }
-        .auth-hint { font-size: 12px; color: #94A3B8; margin-top: 4px; }
-        .back-link { text-align: center; margin-top: 20px; }
-        .back-link a { color: #64748B; font-size: 14px; text-decoration: none; }
-        .back-link a:hover { color: #4F6EF7; }
-    </style>
-</head>
-<body>
-    <div class="reader-auth-container">
-        <div>
-            <div class="reader-auth-card">
-                <div class="auth-tabs">
-                    <button class="auth-tab active" id="tabLogin" onclick="switchTab('login')">读者登录</button>
-                    <button class="auth-tab" id="tabRegister" onclick="switchTab('register')">注册新用户</button>
-                </div>
-                <div class="auth-body">
-                    <!-- 登录表单 -->
-                    <form id="formLogin" autocomplete="off">
-                        <h3>欢迎回来</h3>
-                        <div class="form-group">
-                            <label>读者编号</label>
-                            <input type="text" name="reader_no" placeholder="请输入您的读者编号" required>
-                            <div class="auth-hint">如 R20240001</div>
-                        </div>
-                        <div class="form-group">
-                            <label>密码</label>
-                            <input type="password" name="password" placeholder="请输入密码" required>
-                            <div class="auth-hint">示例读者密码: 123456</div>
-                        </div>
-                        <button type="submit" class="btn-auth">登 录</button>
-                        <div class="auth-error" id="loginError"></div>
-                    </form>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#6366F1">
+<title>读者中心 - 图书馆管理系统</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+    .reader-login-page {
+        min-height: 100vh;
+        display: flex; align-items: center; justify-content: center;
+        background: #020617;
+        position: relative; overflow: hidden;
+    }
+    .reader-login-bg {
+        position: absolute; inset: 0;
+        background:
+            radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99,102,241,0.18), transparent),
+            radial-gradient(ellipse 60% 50% at 100% 100%, rgba(139,92,246,0.10), transparent),
+            radial-gradient(ellipse 40% 40% at 0% 80%, rgba(59,130,246,0.08), transparent);
+    }
+    .reader-login-bg-grid {
+        position: absolute; inset: 0; opacity: 0.018;
+        background-image: linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px);
+        background-size: 60px 60px;
+        mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black, transparent);
+    }
+    .reader-auth-container {
+        position: relative; z-index: 1;
+        width: 100%; max-width: 460px; padding: 20px;
+    }
+    .reader-auth-card {
+        background: rgba(255,255,255,0.93); backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 24px; overflow: hidden;
+        box-shadow: 0 32px 64px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    }
+    .auth-header {
+        text-align: center; padding: 36px 36px 0;
+    }
+    .auth-logo {
+        width: 68px; height: 68px; margin: 0 auto 18px;
+        background: linear-gradient(135deg, #6366F1, #8B5CF6, #A78BFA);
+        border-radius: 20px; display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 14px 36px rgba(99,102,241,0.3);
+        animation: logoFloat 3s ease-in-out infinite;
+    }
+    @keyframes logoFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+    .auth-logo svg { width: 34px; height: 34px; }
+    .auth-header h2 { font-size: 22px; font-weight: 800; color: #1E293B; margin-bottom: 4px; }
+    .auth-header p { color: #64748B; font-size: 14px; }
 
-                    <!-- 注册表单 -->
-                    <form id="formRegister" style="display:none;" autocomplete="off">
-                        <h3>创建读者账户</h3>
-                        <div class="form-group">
-                            <label>姓名 *</label>
-                            <input type="text" name="name" placeholder="请输入您的真实姓名" required>
-                        </div>
-                        <div class="form-group">
-                            <label>性别</label>
-                            <div style="display:flex;gap:24px;padding-top:4px;">
-                                <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
-                                    <input type="radio" name="gender" value="男" style="width:auto;"> 男
-                                </label>
-                                <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
-                                    <input type="radio" name="gender" value="女" style="width:auto;"> 女
-                                </label>
-                                <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
-                                    <input type="radio" name="gender" value="其他" checked style="width:auto;"> 其他
-                                </label>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>手机号</label>
-                            <input type="text" name="phone" placeholder="请输入手机号">
-                        </div>
-                        <div class="form-group">
-                            <label>邮箱</label>
-                            <input type="email" name="email" placeholder="请输入邮箱">
-                        </div>
-                        <div class="form-group">
-                            <label>密码 *</label>
-                            <input type="password" name="password" placeholder="设置登录密码（至少4位）" required minlength="4">
-                        </div>
-                        <button type="submit" class="btn-auth">注 册</button>
-                        <div class="auth-error" id="registerError"></div>
-                        <div class="auth-success" id="registerSuccess"></div>
-                    </form>
-                </div>
+    .auth-tabs {
+        display: flex; gap: 0; margin: 24px 36px;
+        background: #F1F5F9; border-radius: 12px; padding: 4px;
+    }
+    .auth-tab {
+        flex: 1; padding: 10px 0; text-align: center; border: none; cursor: pointer;
+        font-weight: 600; font-size: 14px; border-radius: 10px;
+        transition: all 0.2s ease; background: transparent; color: #64748B;
+        font-family: inherit;
+    }
+    .auth-tab.active { background: white; color: #6366F1; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+
+    .auth-body { padding: 0 36px 32px; }
+    .auth-body .form-group { margin-bottom: 16px; }
+    .auth-body label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 5px; }
+    .auth-body input[type="text"],
+    .auth-body input[type="password"],
+    .auth-body input[type="email"] {
+        width: 100%; padding: 12px 14px; border: 1.5px solid #E2E8F0; border-radius: 12px;
+        font-size: 15px; outline: none; background: #F8FAFC; transition: all 0.2s ease;
+        font-family: inherit; color: #1E293B;
+    }
+    .auth-body input:focus {
+        border-color: #6366F1; box-shadow: 0 0 0 4px rgba(99,102,241,0.08); background: white;
+    }
+    .auth-body .btn-auth {
+        width: 100%; padding: 13px;
+        background: linear-gradient(135deg, #6366F1, #4F46E5);
+        color: white; border: none; border-radius: 12px;
+        font-size: 16px; font-weight: 700; cursor: pointer;
+        transition: all 0.2s ease; margin-top: 8px;
+        box-shadow: 0 4px 14px rgba(99,102,241,0.3);
+        font-family: inherit; letter-spacing: 0.3px;
+    }
+    .auth-body .btn-auth:hover {
+        transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,102,241,0.45);
+    }
+    .auth-body .btn-auth:active { transform: translateY(0); }
+    .auth-body .btn-auth:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .auth-body .btn-auth.register {
+        background: linear-gradient(135deg, #10B981, #059669);
+        box-shadow: 0 4px 14px rgba(16,185,129,0.3);
+    }
+    .auth-body .btn-auth.register:hover { box-shadow: 0 8px 24px rgba(16,185,129,0.45); }
+    .auth-error { color: #EF4444; font-size: 13px; text-align: center; margin-top: 10px; min-height: 18px; font-weight: 500; }
+    .auth-success { color: #10B981; font-size: 13px; text-align: center; margin-top: 10px; min-height: 18px; font-weight: 500; }
+    .auth-hint { font-size: 12px; color: #94A3B8; margin-top: 4px; }
+
+    .gender-options { display: flex; gap: 20px; padding-top: 4px; }
+    .gender-options label { display: flex; align-items: center; gap: 6px; font-weight: 400; cursor: pointer; font-size: 14px; color: #475569; }
+    .gender-options input[type="radio"] { width: auto; accent-color: #6366F1; }
+
+    .back-link { text-align: center; margin-top: 20px; position: relative; z-index: 1; }
+    .back-link a { color: rgba(255,255,255,0.5); font-size: 13px; text-decoration: none; transition: color 0.2s; }
+    .back-link a:hover { color: rgba(255,255,255,0.85); }
+</style>
+</head>
+<body class="reader-login-page">
+<div class="reader-login-bg"></div>
+<div class="reader-login-bg-grid"></div>
+<div class="reader-auth-container">
+    <div class="reader-auth-card">
+        <div class="auth-header">
+            <div class="auth-logo">
+                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="white" stroke-width="2"/><text x="12" y="17" text-anchor="middle" font-size="11" fill="white" font-weight="bold">读</text></svg>
             </div>
-            <div class="back-link"><a href="/">返回首页</a></div>
+            <h2>读者服务中心</h2>
+            <p>登录或注册，开始您的阅读之旅</p>
+        </div>
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="tabLogin" onclick="switchTab('login')">登 录</button>
+            <button class="auth-tab" id="tabRegister" onclick="switchTab('register')">注 册</button>
+        </div>
+        <div class="auth-body">
+            <!-- 登录表单 -->
+            <form id="formLogin" autocomplete="off">
+                <div class="form-group">
+                    <label>账号 / 姓名 / 手机号</label>
+                    <input type="text" name="reader_no" placeholder="输入编号、姓名或手机号即可登录" required>
+                    <div class="auth-hint">支持: 读者编号 / 姓名 / 手机号</div>
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" name="password" placeholder="请输入密码" required>
+                    <div class="auth-hint">示例读者密码: 123456</div>
+                </div>
+                <button type="submit" class="btn-auth">登 录 读 者 中 心</button>
+                <div class="auth-error" id="loginError"></div>
+            </form>
+
+            <!-- 注册表单 -->
+            <form id="formRegister" style="display:none;" autocomplete="off">
+                <div class="form-group">
+                    <label>姓名 *</label>
+                    <input type="text" name="name" placeholder="请输入您的真实姓名" required>
+                </div>
+                <div class="form-group">
+                    <label>性别</label>
+                    <div class="gender-options">
+                        <label><input type="radio" name="gender" value="男"> 男</label>
+                        <label><input type="radio" name="gender" value="女"> 女</label>
+                        <label><input type="radio" name="gender" value="其他" checked> 其他</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>手机号</label>
+                    <input type="text" name="phone" placeholder="请输入手机号（可选）">
+                </div>
+                <div class="form-group">
+                    <label>邮箱</label>
+                    <input type="email" name="email" placeholder="请输入邮箱（可选）">
+                </div>
+                <div class="form-group">
+                    <label>密码 *</label>
+                    <input type="password" name="password" placeholder="设置登录密码（至少4位）" required minlength="4">
+                </div>
+                <button type="submit" class="btn-auth register">注 册 新 账 户</button>
+                <div class="auth-error" id="registerError"></div>
+                <div class="auth-success" id="registerSuccess"></div>
+            </form>
         </div>
     </div>
+    <div class="back-link"><a href="/">&#8592; 返回首页</a></div>
+</div>
 
-    <script>
-        function switchTab(tab) {
-            document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
-            document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
-            document.getElementById('formLogin').style.display = tab === 'login' ? '' : 'none';
-            document.getElementById('formRegister').style.display = tab === 'register' ? '' : 'none';
-            document.getElementById('loginError').textContent = '';
-            document.getElementById('registerError').textContent = '';
-            document.getElementById('registerSuccess').textContent = '';
+<script>
+function switchTab(tab) {
+    document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
+    document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
+    document.getElementById('formLogin').style.display = tab === 'login' ? '' : 'none';
+    document.getElementById('formRegister').style.display = tab === 'register' ? '' : 'none';
+    document.getElementById('loginError').textContent = '';
+    document.getElementById('registerError').textContent = '';
+    document.getElementById('registerSuccess').textContent = '';
+}
+
+document.getElementById('formLogin').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    document.getElementById('loginError').textContent = '';
+    const reader_no = this.reader_no.value.trim();
+    const password = this.password.value;
+    if (!reader_no || !password) { document.getElementById('loginError').textContent = '请输入账号和密码'; return; }
+    try {
+        const resp = await fetch('/api/reader/login', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({reader_no, password})
+        });
+        const data = await resp.json();
+        if (data.success) window.location.href = '/reader/dashboard';
+        else document.getElementById('loginError').textContent = data.message;
+    } catch (err) { document.getElementById('loginError').textContent = '网络错误'; }
+});
+
+document.getElementById('formRegister').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    document.getElementById('registerError').textContent = '';
+    document.getElementById('registerSuccess').textContent = '';
+    const body = {
+        name: this.name.value.trim(),
+        gender: this.gender.value,
+        phone: this.phone.value.trim(),
+        email: this.email.value.trim(),
+        password: this.password.value,
+    };
+    if (!body.name || body.name.length < 2) { document.getElementById('registerError').textContent = '姓名至少2个字符'; return; }
+    if (!body.password || body.password.length < 4) { document.getElementById('registerError').textContent = '密码至少4位'; return; }
+    try {
+        const resp = await fetch('/api/reader/register', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const data = await resp.json();
+        if (data.success) {
+            document.getElementById('registerSuccess').textContent = data.message;
+            setTimeout(() => window.location.href = '/reader/dashboard', 1500);
+        } else {
+            document.getElementById('registerError').textContent = data.message;
         }
-
-        document.getElementById('formLogin').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            document.getElementById('loginError').textContent = '';
-            const reader_no = this.reader_no.value.trim();
-            const password = this.password.value;
-            if (!reader_no || !password) { document.getElementById('loginError').textContent = '请填写完整'; return; }
-            try {
-                const resp = await fetch('/api/reader/login', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({reader_no, password})
-                });
-                const data = await resp.json();
-                if (data.success) window.location.href = '/reader/dashboard';
-                else document.getElementById('loginError').textContent = data.message;
-            } catch (err) { document.getElementById('loginError').textContent = '网络错误'; }
-        });
-
-        document.getElementById('formRegister').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            document.getElementById('registerError').textContent = '';
-            document.getElementById('registerSuccess').textContent = '';
-            const body = {
-                name: this.name.value.trim(),
-                gender: this.gender.value,
-                phone: this.phone.value.trim(),
-                email: this.email.value.trim(),
-                password: this.password.value,
-            };
-            if (!body.name || body.name.length < 2) { document.getElementById('registerError').textContent = '姓名至少2个字符'; return; }
-            if (!body.password || body.password.length < 4) { document.getElementById('registerError').textContent = '密码至少4位'; return; }
-            try {
-                const resp = await fetch('/api/reader/register', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(body)
-                });
-                const data = await resp.json();
-                if (data.success) {
-                    document.getElementById('registerSuccess').textContent = data.message;
-                    setTimeout(() => window.location.href = '/reader/dashboard', 1500);
-                } else {
-                    document.getElementById('registerError').textContent = data.message;
-                }
-            } catch (err) { document.getElementById('registerError').textContent = '网络错误'; }
-        });
-    </script>
+    } catch (err) { document.getElementById('registerError').textContent = '网络错误'; }
+});
+</script>
 </body>
 </html>

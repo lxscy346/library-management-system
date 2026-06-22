@@ -19,6 +19,7 @@
             <div class="reader-links">
                 <a href="/reader/dashboard" class="active">我的借阅</a>
                 <a href="/reader/books">浏览图书</a>
+                <a href="#" onclick="showChangePwd()">修改密码</a>
                 <a href="/reader/logout" class="logout">退出</a>
             </div>
         </div>
@@ -64,7 +65,14 @@
                                 <span class="badge badge-borrowed">借阅中</span>
                                 {% endif %}
                             </td>
-                            <td><button class="btn btn-success btn-sm" onclick="returnBook({{ r.id }})">归还</button></td>
+                            <td>
+                                <div class="actions">
+                                {% if r.status != 'overdue' %}
+                                <button class="btn btn-outline btn-xs" onclick="renewBook({{ r.id }})">续借</button>
+                                {% endif %}
+                                <button class="btn btn-success btn-sm" onclick="returnBook({{ r.id }})">归还</button>
+                                </div>
+                            </td>
                         </tr>
                         {% endfor %}
                         </tbody>
@@ -111,8 +119,42 @@
         </div>
     </div>
 
+    <!-- 修改密码 Modal -->
+    <div class="modal-overlay" id="pwdModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header"><h3>修改密码</h3><button class="modal-close" onclick="closeModal('pwdModal')">&times;</button></div>
+            <form id="pwdForm">
+                <div class="modal-body">
+                    <div class="form-group"><label>旧密码</label><input type="password" id="oldPwd" required></div>
+                    <div class="form-group"><label>新密码</label><input type="password" id="newPwd" required minlength="4"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('pwdModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">确认修改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="/static/js/main.js"></script>
     <script>
+        function showChangePwd() { document.getElementById('pwdForm').reset(); openModal('pwdModal'); }
+
+        document.getElementById('pwdForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const body = { old_password: document.getElementById('oldPwd').value, new_password: document.getElementById('newPwd').value };
+            const data = await api('/api/reader/change_password', {method:'POST', body:JSON.stringify(body)});
+            showToast(data.message, data.success?'success':'error');
+            if (data.success) closeModal('pwdModal');
+        });
+
+        async function renewBook(recordId) {
+            if (!confirm('确认续借30天吗？（最多续借2次）')) return;
+            const data = await api(`/api/renew/${recordId}`, {method:'POST'});
+            showToast(data.message, data.success?'success':'error');
+            if (data.success) location.reload();
+        }
+
         async function returnBook(recordId) {
             if (!confirm('确认归还该图书吗？')) return;
             const resp = await fetch(`/api/return/${recordId}`, { method: 'POST', headers: {'Content-Type': 'application/json'} });

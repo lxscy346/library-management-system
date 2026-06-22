@@ -1,122 +1,370 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>浏览图书 - 读者中心</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>浏览图书 - 图书馆管理系统</title>
+<link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <div class="reader-container">
-        <div class="reader-topbar">
-            <div class="reader-profile">
-                <div class="reader-avatar" id="avatarLetter">?</div>
-                <div>
-                    <h3 id="readerName">加载中...</h3>
-                    <div class="reader-meta" id="readerNo"></div>
-                </div>
-            </div>
-            <div class="reader-links">
-                <a href="/reader/dashboard">我的借阅</a>
-                <a href="/reader/books" class="active">浏览图书</a>
-                <a href="/reader/logout" class="logout">退出</a>
+<div class="reader-container">
+    <div class="reader-topbar">
+        <div class="reader-profile">
+            <div class="reader-avatar" id="avatarLetter">?</div>
+            <div>
+                <h3 id="readerName">加载中...</h3>
+                <div class="reader-meta" id="readerNo"></div>
             </div>
         </div>
-
-        <div class="reader-search">
-            <input type="text" class="search-input" id="searchBooks" placeholder="搜索书名 / 作者 / ISBN...">
-            <select class="filter-select" id="filterCategory"><option value="">全部分类</option></select>
-            <button class="btn btn-outline btn-sm" onclick="loadBooks()">搜索</button>
+        <div class="reader-links">
+            <a href="/reader/dashboard">我的借阅</a>
+            <a href="/reader/books" class="active">浏览图书</a>
+            <a href="#" id="favLink">我的收藏</a>
+            <a href="/reader/logout" class="logout">退出</a>
         </div>
-
-        <div class="book-grid" id="bookGrid"></div>
-        <div id="booksPagination" style="margin-top:20px;"></div>
     </div>
 
-    <script src="/static/js/main.js"></script>
-    <script>
-        let currentPage = 1, readerInfo = null;
+    <div id="annBar" style="margin-top:16px;display:none;"></div>
 
-        async function init() {
-            const resp = await fetch('/api/reader/info');
-            const data = await resp.json();
+    <div class="reader-search">
+        <input type="text" class="search-input" id="searchBooks" placeholder="搜索书名/作者/ISBN...">
+        <select class="filter-select" id="filterCategory"><option value="">全部分类</option></select>
+        <button class="btn btn-outline btn-sm" id="btnSearch">搜索</button>
+        <button class="btn btn-outline btn-sm" id="btnRecommend">智能推荐</button>
+        <button class="btn btn-primary btn-sm" id="btnPurchase">荐购图书</button>
+    </div>
+
+    <h3 style="margin-top:20px;" id="sectionTitle">全部图书</h3>
+    <div class="book-grid" id="bookGrid"></div>
+    <div id="booksPagination" style="margin-top:20px;"></div>
+
+    <!-- Purchase Modal -->
+    <div class="modal-overlay" id="purchaseModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header"><h3>图书荐购</h3><button class="modal-close" onclick="closeModal('purchaseModal')">&times;</button></div>
+            <form id="purchaseForm">
+                <div class="modal-body">
+                    <div class="form-group"><label>书名 *</label><input type="text" id="prTitle" required></div>
+                    <div class="form-group"><label>作者</label><input type="text" id="prAuthor"></div>
+                    <div class="form-group"><label>出版社</label><input type="text" id="prPublisher"></div>
+                    <div class="form-group"><label>推荐理由</label><textarea id="prReason" rows="3"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('purchaseModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">提交</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Review Modal -->
+    <div class="modal-overlay" id="reviewModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header"><h3 id="reviewBookTitle">书评</h3><button class="modal-close" onclick="closeModal('reviewModal')">&times;</button></div>
+            <div class="modal-body">
+                <div id="reviewStats" style="text-align:center;margin-bottom:12px;"></div>
+                <form id="reviewForm">
+                    <div class="form-group"><label>评分</label>
+                        <select id="reviewRating"><option value="5">5星</option><option value="4">4星</option><option value="3">3星</option><option value="2">2星</option><option value="1">1星</option></select>
+                    </div>
+                    <div class="form-group"><label>评论</label><textarea id="reviewContent" rows="2" required></textarea></div>
+                    <button type="submit" class="btn btn-primary btn-sm">发表评论</button>
+                </form>
+                <div id="reviewList" style="margin-top:16px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/main.js"></script>
+<script>
+(function() {
+    'use strict';
+    var currentPage = 1;
+    var readerInfo = null;
+    var currentReviewBookId = null;
+    var showingFavorites = false;
+    var catColors = {
+        '计算机科学':'#6366F1','编程语言':'#8B5CF6','Web开发':'#EC4899','数据库':'#F97316',
+        '大数据':'#EAB308','人工智能':'#22C55E','软件工程':'#3B82F6','计算机网络':'#06B6D4',
+        '文学小说':'#F43F5E','历史文化':'#14B8A6','哲学':'#A855F7','经济管理':'#EAB308',
+        '数学':'#3B82F6','自然科学':'#22C55E'
+    };
+    var catIcons = {
+        '计算机科学':'💻','编程语言':'⌨️','Web开发':'🌐','数据库':'🗄️',
+        '大数据':'📊','人工智能':'🤖','软件工程':'⚙️','计算机网络':'🔗',
+        '文学小说':'📖','历史文化':'🏛️','哲学':'💭','经济管理':'💰',
+        '数学':'🔢','自然科学':'🔬'
+    };
+
+    // Init
+    async function init() {
+        try {
+            var resp = await fetch('/api/reader/info');
+            // If not logged in, server redirects to /reader - follow it
+            if (resp.redirected || resp.status === 302 || resp.status === 401) {
+                window.location.href = '/reader';
+                return;
+            }
+            var ct = resp.headers.get('content-type') || '';
+            if (ct.indexOf('application/json') === -1) {
+                window.location.href = '/reader';
+                return;
+            }
+            var data = await resp.json();
             if (!data.success) { window.location.href = '/reader'; return; }
             readerInfo = data.data;
-            document.getElementById('avatarLetter').textContent = readerInfo.name[0];
-            document.getElementById('readerName').textContent = readerInfo.name;
-            document.getElementById('readerNo').textContent = `编号: ${readerInfo.reader_no} | 可借: ${readerInfo.max_borrow - readerInfo.borrowing_count}本`;
+            document.getElementById('avatarLetter').textContent = (readerInfo.name || '?')[0];
+            document.getElementById('readerName').textContent = readerInfo.name || '未知';
+            document.getElementById('readerNo').textContent = '编号: ' + (readerInfo.reader_no || '') + ' | 可借: ' + ((readerInfo.max_borrow||5) - (readerInfo.borrowing_count||0)) + '本';
+            loadAnnouncements();
+            loadCategories();
+            loadBooks();
+        } catch(e) {
+            // Not logged in or network error - redirect to login
+            window.location.href = '/reader';
         }
+    }
 
-        async function loadBooks(page = 1) {
-            currentPage = page;
-            const keyword = document.getElementById('searchBooks').value;
-            const category = document.getElementById('filterCategory').value;
-            const params = new URLSearchParams({ page, page_size: 12, keyword, category });
-
-            const data = await api(`/api/books?${params}`);
-            if (!data.success) { showToast(data.message, 'error'); return; }
-
-            const grid = document.getElementById('bookGrid');
-            if (data.data.length === 0) {
-                grid.innerHTML = '<div style="grid-column:1/-1;"><div class="empty-state"><p>未找到匹配的图书</p></div></div>';
-            } else {
-                grid.innerHTML = data.data.map(b => {
-                    const available = b.available_copies > 0;
-                    return `
-                    <div class="book-card">
-                        <div class="bc-cat">${esc(b.category || '未分类')}</div>
-                        <div class="bc-title">${esc(b.title)}</div>
-                        <div class="bc-author">${esc(b.author)} · ${esc(b.publisher || '')}</div>
-                        <div class="bc-meta">
-                            <span>ISBN: ${esc(b.isbn)}</span>
-                            <span>位置: ${esc(b.location || '-')}</span>
-                            <span>¥${Number(b.price).toFixed(2)}</span>
-                        </div>
-                        <div class="bc-stock ${available ? 'available' : 'unavailable'}">
-                            ${available ? `可借 ${b.available_copies}/${b.total_copies} 本` : '已全部借出'}
-                        </div>
-                        <button class="bc-btn ${available ? 'can' : 'cant'}"
-                                ${available ? `onclick="borrowBook(${b.id}, '${esc(b.title).replace(/'/g, "\\'")}')"` : 'disabled'}>
-                            ${available ? '立即借阅' : '暂无库存'}
-                        </button>
-                    </div>`;
-                }).join('');
+    async function loadAnnouncements() {
+        try {
+            var data = await api('/api/announcements?page=1&page_size=3');
+            if (data.success && data.data.length > 0) {
+                var bar = document.getElementById('annBar');
+                bar.style.display = 'block';
+                var html = '';
+                for (var i = 0; i < data.data.length; i++) {
+                    var a = data.data[i];
+                    html += '<div style="background:var(--primary-50);padding:10px 16px;border-radius:8px;margin-bottom:4px;border-left:4px solid var(--primary);">📢 <strong>' + esc(a.title) + '</strong>: ' + esc(a.content).substring(0,80) + '</div>';
+                }
+                bar.innerHTML = html;
             }
+        } catch(e) {}
+    }
 
-            const totalPages = Math.ceil(data.total / 12);
-            renderPagination(document.getElementById('booksPagination'), currentPage, totalPages, data.total, loadBooks);
-        }
-
-        async function borrowBook(bookId, bookTitle) {
-            if (!readerInfo) return;
-            const remaining = readerInfo.max_borrow - readerInfo.borrowing_count;
-            if (remaining <= 0) { showToast(`您的借阅数已达上限（${readerInfo.max_borrow}本），请先归还后再借`, 'error'); return; }
-            if (!confirm(`确认借阅《${bookTitle}》吗？借期30天。`)) return;
-
-            const resp = await fetch('/api/borrow', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ reader_id: readerInfo.id, book_id: bookId, borrow_days: 30 })
-            });
-            const data = await resp.json();
+    async function loadCategories() {
+        try {
+            var data = await api('/api/categories');
             if (data.success) {
-                showToast('借阅成功！请在30天内归还');
-                init(); loadBooks(currentPage);
-            } else {
-                showToast(data.message, 'error');
+                var sel = document.getElementById('filterCategory');
+                for (var i = 0; i < data.data.length; i++) {
+                    if (data.data[i]) {
+                        sel.innerHTML += '<option value="' + esc(data.data[i]) + '">' + esc(data.data[i]) + '</option>';
+                    }
+                }
             }
-        }
+        } catch(e) {}
+    }
 
-        async function loadCategories() {
-            const data = await api('/api/categories');
-            if (data.success) {
-                const sel = document.getElementById('filterCategory');
-                data.data.forEach(c => { if (c) sel.innerHTML += `<option value="${esc(c)}">${esc(c)}</option>`; });
+    async function loadBooks(page) {
+        page = page || 1;
+        currentPage = page;
+        showingFavorites = false;
+        document.getElementById('sectionTitle').textContent = '全部图书';
+        var keyword = document.getElementById('searchBooks').value;
+        var category = document.getElementById('filterCategory').value;
+        var params = 'page=' + page + '&page_size=12&keyword=' + encodeURIComponent(keyword) + '&category=' + encodeURIComponent(category);
+        var data = await api('/api/books?' + params);
+        if (!data.success) { showToast(data.message, 'error'); return; }
+        renderBooks(document.getElementById('bookGrid'), data.data);
+        var tp = Math.ceil(data.total / 12);
+        renderPagination(document.getElementById('booksPagination'), currentPage, tp, data.total, loadBooks);
+    }
+
+    async function loadRecommend() {
+        showingFavorites = false;
+        document.getElementById('sectionTitle').textContent = '为你推荐';
+        var data = await api('/api/recommend');
+        if (!data.success) { showToast(data.message, 'error'); return; }
+        renderBooks(document.getElementById('bookGrid'), data.data);
+        document.getElementById('booksPagination').innerHTML = '';
+    }
+
+    async function loadFavorites() {
+        showingFavorites = true;
+        document.getElementById('sectionTitle').textContent = '我的收藏';
+        document.getElementById('favLink').classList.add('active');
+        var data = await api('/api/favorites');
+        if (data.success) {
+            renderBooks(document.getElementById('bookGrid'), data.data);
+        }
+        document.getElementById('booksPagination').innerHTML = '';
+    }
+
+    function renderBooks(grid, books) {
+        if (!books || books.length === 0) {
+            grid.innerHTML = '<div style="grid-column:1/-1;"><div class="empty-state"><p>暂无图书</p></div></div>';
+            return;
+        }
+        var html = '';
+        for (var i = 0; i < books.length; i++) {
+            var b = books[i];
+            var available = b.available_copies > 0;
+            var c1 = catColors[b.category] || '#6366F1';
+            var icon = catIcons[b.category] || '📚';
+            var desc = b.description || '';
+            var descShort = desc.length > 80 ? desc.substring(0,80) + '...' : desc;
+            var canClass = available ? 'can' : 'cant';
+            var disabled = available ? '' : 'disabled';
+            var stockText = available ? ('✅ 可借 ' + b.available_copies + '/' + b.total_copies + ' 本') : '❌ 已全部借出';
+            var btnText = available ? '📥 借阅' : '暂无库存';
+            var safeTitle = esc(b.title);
+            var safeAuthor = esc(b.author);
+            var safeCat = esc(b.category || '未分类');
+            var safeLoc = esc(b.location || '');
+            var safeTitleAttr = safeTitle.replace(/"/g, '&quot;');
+
+            html += '<div class="book-card" style="padding:0;overflow:hidden;">';
+            html += '<div style="background:linear-gradient(135deg,' + c1 + ',' + c1 + 'cc);padding:28px 20px 20px;text-align:center;position:relative;min-height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;">';
+            html += '<div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:rgba(255,255,255,0.1);border-radius:50%;"></div>';
+            html += '<div style="position:absolute;bottom:-40px;left:-20px;width:80px;height:80px;background:rgba(255,255,255,0.06);border-radius:50%;"></div>';
+            html += '<span style="font-size:40px;position:relative;z-index:1;margin-bottom:8px;">' + icon + '</span>';
+            html += '<div style="color:white;font-weight:800;font-size:16px;line-height:1.4;position:relative;z-index:1;text-shadow:0 2px 8px rgba(0,0,0,0.2);">' + safeTitle + '</div>';
+            html += '<div style="color:rgba(255,255,255,0.85);font-size:13px;margin-top:6px;position:relative;z-index:1;">' + safeAuthor + '</div>';
+            html += '</div>';
+            html += '<div style="padding:16px 20px;">';
+            if (desc) {
+                html += '<p style="color:var(--gray-600);font-size:13px;line-height:1.6;margin-bottom:12px;min-height:40px;">' + esc(descShort) + '</p>';
             }
+            html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">';
+            html += '<span style="font-size:11px;font-weight:700;color:' + c1 + ';background:' + c1 + '18;padding:2px 8px;border-radius:10px;">' + safeCat + '</span>';
+            html += '<span style="font-size:11px;color:var(--gray-400);">¥' + Number(b.price).toFixed(2) + '</span>';
+            html += '<span style="font-size:11px;color:var(--gray-400);">' + safeLoc + '</span>';
+            html += '</div>';
+            html += '<div style="font-weight:700;font-size:13px;color:' + (available ? 'var(--success)' : 'var(--danger)') + ';margin-bottom:10px;">' + stockText + '</div>';
+            html += '<div style="display:flex;gap:6px;">';
+            html += '<button class="bc-btn ' + canClass + '" style="flex:1;" data-action="borrow" data-bid="' + b.id + '" data-btitle="' + safeTitleAttr + '" ' + disabled + '>' + btnText + '</button>';
+            html += '<button class="btn btn-outline btn-sm" data-action="fav" data-bid="' + b.id + '" title="收藏">♡</button>';
+            html += '<button class="btn btn-outline btn-sm" data-action="review" data-bid="' + b.id + '" data-btitle="' + safeTitleAttr + '" title="书评">★</button>';
+            html += '</div></div></div>';
         }
+        grid.innerHTML = html;
+        // Load favorite statuses
+        for (var j = 0; j < books.length; j++) {
+            loadFavStatus(books[j].id);
+        }
+    }
 
-        init();
-        loadCategories();
-        loadBooks();
-    </script>
+    async function loadFavStatus(bookId) {
+        try {
+            var data = await api('/api/favorite/' + bookId + '/status');
+            if (data.favorited) {
+                var btns = document.querySelectorAll('[data-action=\"fav\"][data-bid=\"' + bookId + '\"]');
+                for (var i = 0; i < btns.length; i++) {
+                    btns[i].textContent = '♥';
+                    btns[i].style.color = 'var(--danger)';
+                }
+            }
+        } catch(e) {}
+    }
+
+    // Event delegation
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        e.preventDefault();
+        var action = btn.getAttribute('data-action');
+        var bookId = parseInt(btn.getAttribute('data-bid'));
+        var bookTitle = btn.getAttribute('data-btitle') || '';
+        if (action === 'borrow' && !btn.disabled) {
+            borrowBook(bookId, bookTitle);
+        } else if (action === 'fav') {
+            toggleFavorite(bookId, btn);
+        } else if (action === 'review') {
+            openReview(bookId, bookTitle);
+        }
+    });
+
+    async function borrowBook(bookId, bookTitle) {
+        if (!readerInfo) return;
+        var remaining = readerInfo.max_borrow - readerInfo.borrowing_count;
+        if (remaining <= 0) { showToast('借阅数已达上限（' + readerInfo.max_borrow + '本）', 'error'); return; }
+        if (!confirm('确认借阅《' + bookTitle + '》吗？借期30天。')) return;
+        var resp = await fetch('/api/borrow', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ reader_id: readerInfo.id, book_id: bookId, borrow_days: 30 })
+        });
+        var data = await resp.json();
+        showToast(data.message, data.success ? 'success' : 'error');
+        if (data.success) { init(); loadBooks(currentPage); }
+    }
+
+    async function toggleFavorite(bookId, btn) {
+        if (!readerInfo) return;
+        var data = await api('/api/favorite/' + bookId, {method:'POST'});
+        if (data.success) {
+            btn.textContent = data.favorited ? '♥' : '♡';
+            btn.style.color = data.favorited ? 'var(--danger)' : '';
+            showToast(data.message);
+        } else { showToast(data.message, 'error'); }
+    }
+
+    async function openReview(bookId, title) {
+        currentReviewBookId = bookId;
+        document.getElementById('reviewBookTitle').textContent = '书评 - ' + title;
+        document.getElementById('reviewForm').reset();
+        var data = await api('/api/reviews/' + bookId);
+        var stats = document.getElementById('reviewStats');
+        if (data.avg_rating) {
+            var stars = '';
+            for (var s = 0; s < Math.round(data.avg_rating); s++) stars += '⭐';
+            stats.textContent = stars + ' ' + data.avg_rating + '分 · ' + data.review_count + '条评论';
+        } else {
+            stats.textContent = '暂无评分';
+        }
+        var list = document.getElementById('reviewList');
+        if (data.data && data.data.length > 0) {
+            var html = '';
+            for (var i = 0; i < data.data.length; i++) {
+                var r = data.data[i];
+                var stars2 = '';
+                for (var s2 = 0; s2 < r.rating; s2++) stars2 += '⭐';
+                html += '<div style="padding:10px 0;border-bottom:1px solid var(--gray-100);"><strong>' + esc(r.reader_name) + '</strong> <span>' + stars2 + '</span><span style="font-size:11px;color:var(--gray-400);float:right;">' + (r.created_at||'').substring(0,16) + '</span><p style="margin:4px 0 0;color:var(--gray-600);">' + esc(r.content) + '</p></div>';
+            }
+            list.innerHTML = html;
+        } else {
+            list.innerHTML = '<p style="color:var(--gray-400);">暂无评论</p>';
+        }
+        openModal('reviewModal');
+    }
+
+    // Button events
+    document.getElementById('btnSearch').addEventListener('click', function() { loadBooks(1); });
+    document.getElementById('btnRecommend').addEventListener('click', loadRecommend);
+    document.getElementById('btnPurchase').addEventListener('click', function() { openModal('purchaseModal'); });
+    document.getElementById('favLink').addEventListener('click', function(e) { e.preventDefault(); loadFavorites(); });
+    document.getElementById('searchBooks').addEventListener('keydown', function(e) { if (e.key === 'Enter') loadBooks(1); });
+
+    document.getElementById('reviewForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!readerInfo) return;
+        var body = {
+            book_id: currentReviewBookId,
+            rating: parseInt(document.getElementById('reviewRating').value),
+            content: document.getElementById('reviewContent').value.trim()
+        };
+        var data = await api('/api/review', {method:'POST', body:JSON.stringify(body)});
+        showToast(data.message, data.success ? 'success' : 'error');
+        if (data.success) closeModal('reviewModal');
+    });
+
+    document.getElementById('purchaseForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!readerInfo) return;
+        var body = {
+            title: document.getElementById('prTitle').value.trim(),
+            author: document.getElementById('prAuthor').value.trim(),
+            publisher: document.getElementById('prPublisher').value.trim(),
+            reason: document.getElementById('prReason').value.trim()
+        };
+        var data = await api('/api/purchase_request', {method:'POST', body:JSON.stringify(body)});
+        showToast(data.message, data.success ? 'success' : 'error');
+        if (data.success) closeModal('purchaseModal');
+    });
+
+    // Start
+    init();
+})();
+</script>
 </body>
 </html>

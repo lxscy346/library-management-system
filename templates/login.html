@@ -3,8 +3,100 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0F172A">
 <title>管理员登录 - 图书馆管理系统</title>
 <link rel="stylesheet" href="/static/css/style.css">
+<style>
+    .login-page {
+        min-height: 100vh;
+        display: flex; align-items: center; justify-content: center;
+        background: #020617;
+        position: relative; overflow: hidden;
+    }
+    .login-bg {
+        position: absolute; inset: 0;
+        background:
+            radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99,102,241,0.22), transparent),
+            radial-gradient(ellipse 60% 50% at 100% 100%, rgba(139,92,246,0.12), transparent),
+            radial-gradient(ellipse 40% 40% at 0% 80%, rgba(59,130,246,0.08), transparent);
+    }
+    .login-bg-grid {
+        position: absolute; inset: 0; opacity: 0.02;
+        background-image: linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px);
+        background-size: 64px 64px;
+        mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black, transparent);
+    }
+    .login-card {
+        position: relative; z-index: 1;
+        width: 420px; max-width: calc(100vw - 32px);
+        background: rgba(255,255,255,0.94); backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 24px;
+        padding: 48px 40px;
+        box-shadow: 0 32px 64px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    }
+    .login-header { text-align: center; margin-bottom: 36px; }
+    .login-logo {
+        width: 76px; height: 76px;
+        background: linear-gradient(135deg, #6366F1, #8B5CF6, #A78BFA);
+        border-radius: 20px;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 20px;
+        box-shadow: 0 16px 44px rgba(99,102,241,0.35);
+        animation: logoFloat 3s ease-in-out infinite;
+    }
+    @keyframes logoFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+    .login-logo svg { width: 38px; height: 38px; }
+    .login-header h1 { font-size: 26px; font-weight: 800; color: #1E293B; margin-bottom: 6px; letter-spacing: -0.3px; }
+    .login-header p { color: #64748B; font-size: 14px; font-weight: 500; }
+
+    .form-group { margin-bottom: 20px; }
+    .form-group label {
+        display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; letter-spacing: 0.3px;
+    }
+    .input-wrapper { position: relative; }
+    .input-icon {
+        position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+        color: #94A3B8; pointer-events: none; display: flex; z-index: 1;
+    }
+    .login-form input[type="text"],
+    .login-form input[type="password"] {
+        width: 100%; padding: 13px 16px 13px 46px;
+        border: 1.5px solid #E2E8F0; border-radius: 12px;
+        font-size: 15px; outline: none; background: #F8FAFC;
+        transition: all 0.2s ease; font-family: inherit; color: #1E293B;
+    }
+    .login-form input:focus {
+        border-color: #6366F1;
+        box-shadow: 0 0 0 4px rgba(99,102,241,0.1);
+        background: white;
+    }
+    .btn-login {
+        width: 100%; padding: 13px;
+        background: linear-gradient(135deg, #6366F1, #4F46E5);
+        color: white; border: none; border-radius: 12px;
+        font-size: 16px; font-weight: 700; cursor: pointer;
+        transition: all 0.2s ease; margin-top: 8px;
+        letter-spacing: 0.5px; position: relative; overflow: hidden;
+        box-shadow: 0 4px 16px rgba(99,102,241,0.3), 0 0 0 1px rgba(255,255,255,0.1) inset;
+        font-family: inherit;
+    }
+    .btn-login::after {
+        content: '';
+        position: absolute; inset: 0;
+        background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+        transform: translateX(-100%); transition: transform 0.5s ease;
+    }
+    .btn-login:hover::after { transform: translateX(100%); }
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 28px rgba(99,102,241,0.45), 0 0 0 1px rgba(255,255,255,0.15) inset;
+    }
+    .btn-login:active { transform: translateY(0); }
+    .login-error { color: #EF4444; font-size: 13px; text-align: center; margin-top: 12px; min-height: 20px; font-weight: 500; }
+</style>
 </head>
 <body class="login-page">
 <div class="login-bg"></div>
@@ -12,10 +104,10 @@
 <div class="login-card">
     <div class="login-header">
         <div class="login-logo">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="white" stroke-width="2"/><text x="12" y="17" text-anchor="middle" font-size="11" fill="white" font-weight="bold">管</text></svg>
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="white" stroke-width="2"/><text x="12" y="17" text-anchor="middle" font-size="11" fill="white" font-weight="bold">管</text></svg>
         </div>
         <h1>图书馆管理系统</h1>
-        <p>管理员后台登录</p>
+        <p>管理员后台 — 安全登录</p>
     </div>
     <form class="login-form" id="loginForm" autocomplete="off">
         <div class="form-group">
@@ -36,7 +128,7 @@
         <div class="login-error" id="loginError"></div>
     </form>
     <div style="text-align:center; margin-top:20px;">
-        <a href="/" style="font-size:13px; color:#94A3B8;">← 返回首页</a>
+        <a href="/" style="font-size:13px; color:#94A3B8; text-decoration:none; transition:color 0.2s;">&#8592; 返回首页</a>
     </div>
 </div>
 

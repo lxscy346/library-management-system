@@ -3,78 +3,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="图书馆管理系统 - 现代化图书管理平台">
+    <meta name="theme-color" content="#0F172A">
     <title>图书馆管理系统</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
         .home-page {
             min-height: 100vh;
-            background: linear-gradient(135deg, #1E293B 0%, #334155 45%, #4F6EF7 100%);
+            background: #020617;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             position: relative; overflow: hidden;
         }
         .home-page::before {
-            content: ''; position: absolute; width: 700px; height: 700px;
-            background: rgba(79,110,247,0.12); border-radius: 50%; top: -300px; right: -200px;
+            content: '';
+            position: absolute; inset: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 20% 0%, rgba(99,102,241,0.18), transparent 50%),
+                radial-gradient(ellipse 60% 40% at 80% 100%, rgba(139,92,246,0.12), transparent 50%),
+                radial-gradient(ellipse 50% 50% at 50% 50%, rgba(59,130,246,0.06), transparent 50%);
+            animation: bgPulse 8s ease-in-out infinite alternate;
+        }
+        @keyframes bgPulse {
+            0% { opacity: 0.8; }
+            100% { opacity: 1.2; }
         }
         .home-page::after {
-            content: ''; position: absolute; width: 500px; height: 500px;
-            background: rgba(79,110,247,0.08); border-radius: 50%; bottom: -200px; left: -150px;
+            content: '';
+            position: absolute; inset: 0; opacity: 0.02;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px);
+            background-size: 72px 72px;
+            mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
         }
-        .home-container { position: relative; z-index: 1; text-align: center; max-width: 600px; padding: 20px; }
+        .home-container { position: relative; z-index: 1; text-align: center; max-width: 640px; padding: 24px; }
         .home-logo {
-            width: 90px; height: 90px; background: white; border-radius: 24px; margin: 0 auto 24px;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            width: 100px; height: 100px; margin: 0 auto 28px;
+            background: linear-gradient(135deg, #6366F1, #8B5CF6, #A78BFA);
+            border-radius: 24px; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 24px 60px rgba(99,102,241,0.35), 0 0 0 1px rgba(255,255,255,0.1) inset;
+            animation: logoFloat 3s ease-in-out infinite;
         }
-        .home-logo svg { width: 48px; height: 48px; fill: #4F6EF7; }
-        .home-container h1 { color: white; font-size: 40px; font-weight: 800; margin-bottom: 8px; letter-spacing: 2px; }
-        .home-container .subtitle { color: rgba(255,255,255,0.7); font-size: 17px; margin-bottom: 48px; }
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+        .home-logo svg { width: 52px; height: 52px; }
+        .home-container h1 {
+            color: white; font-size: 46px; font-weight: 800; margin-bottom: 8px;
+            letter-spacing: -1px; line-height: 1.2;
+            background: linear-gradient(135deg, #FFFFFF 0%, #A5B4FC 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .home-container .subtitle {
+            color: rgba(255,255,255,0.55); font-size: 18px; margin-bottom: 56px; font-weight: 500;
+            letter-spacing: 0.5px;
+        }
         .home-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .home-card {
-            background: white; border-radius: 16px; padding: 36px 28px; text-decoration: none;
-            transition: all 0.3s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            display: flex; flex-direction: column; align-items: center; gap: 12px;
+            background: rgba(255,255,255,0.05); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.06); border-radius: 20px;
+            padding: 44px 28px; text-decoration: none; transition: all 0.35s ease;
+            display: flex; flex-direction: column; align-items: center; gap: 16px;
+            position: relative; overflow: hidden;
         }
-        .home-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.25); }
+        .home-card::before {
+            content: '';
+            position: absolute; inset: 0; border-radius: inherit;
+            background: linear-gradient(135deg, transparent 0%, rgba(99,102,241,0.06) 100%);
+            opacity: 0; transition: opacity 0.35s ease;
+        }
+        .home-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(99,102,241,0.3);
+            box-shadow: 0 24px 56px rgba(0,0,0,0.35), 0 0 0 1px rgba(99,102,241,0.1) inset;
+        }
+        .home-card:hover::before { opacity: 1; }
         .home-card .card-icon {
-            width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+            width: 64px; height: 64px; border-radius: 16px;
+            display: flex; align-items: center; justify-content: center; position: relative; z-index: 1;
+            transition: transform 0.35s ease;
         }
-        .home-card .card-icon.admin { background: #1E293B; color: white; }
-        .home-card .card-icon.reader { background: #4F6EF7; color: white; }
-        .home-card .card-icon svg { width: 28px; height: 28px; }
-        .home-card h3 { font-size: 18px; color: #1E293B; margin: 0; }
-        .home-card p { font-size: 13px; color: #64748B; margin: 0; }
-        .home-footer { position: relative; z-index: 1; margin-top: 48px; color: rgba(255,255,255,0.5); font-size: 13px; }
+        .home-card:hover .card-icon { transform: scale(1.06); }
+        .home-card .card-icon.admin {
+            background: linear-gradient(135deg, #1E293B, #334155);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        .home-card .card-icon.reader {
+            background: linear-gradient(135deg, #6366F1, #8B5CF6);
+            box-shadow: 0 8px 24px rgba(99,102,241,0.3);
+        }
+        .home-card .card-icon svg { width: 32px; height: 32px; position: relative; z-index: 1; }
+        .home-card .card-icon.admin svg { color: #818CF8; }
+        .home-card .card-icon.reader svg { color: white; }
+        .home-card h3 { font-size: 20px; color: white; margin: 0; position: relative; z-index: 1; font-weight: 700; }
+        .home-card p { font-size: 14px; color: rgba(255,255,255,0.5); margin: 0; position: relative; z-index: 1; line-height: 1.5; }
+        .home-footer {
+            position: relative; z-index: 1; margin-top: 64px;
+            color: rgba(255,255,255,0.3); font-size: 13px; letter-spacing: 1px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .home-footer::before, .home-footer::after {
+            content: ''; width: 28px; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+        }
         @media (max-width: 500px) {
             .home-cards { grid-template-columns: 1fr; }
-            .home-container h1 { font-size: 28px; }
+            .home-container h1 { font-size: 30px; }
+            .home-logo { width: 76px; height: 76px; }
+            .home-card { padding: 32px 22px; }
         }
     </style>
 </head>
 <body class="home-page">
     <div class="home-container">
         <div class="home-logo">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#4F6EF7" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="10" fill="#4F6EF7" font-weight="bold">书</text></svg>
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="white" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="10" fill="white" font-weight="bold">书</text></svg>
         </div>
         <h1>图书馆管理系统</h1>
-        <p class="subtitle">Library Management System</p>
+        <p class="subtitle">Library Management System — 让知识自由流动</p>
         <div class="home-cards">
             <a href="/login" class="home-card">
                 <div class="card-icon admin">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
                 </div>
                 <h3>管理员入口</h3>
-                <p>图书管理 · 读者管理 · 借阅操作</p>
+                <p>图书管理 · 读者管理 · 借阅操作 · 数据分析</p>
             </a>
             <a href="/reader" class="home-card">
                 <div class="card-icon reader">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
                 <h3>读者入口</h3>
-                <p>注册账户 · 浏览图书 · 借还书</p>
+                <p>注册账户 · 浏览图书 · 自助借阅 · 一键归还</p>
             </a>
         </div>
     </div>
-    <div class="home-footer">开放图书馆 · 让知识自由流动</div>
+    <div class="home-footer" style="display:flex;flex-direction:column;align-items:center;gap:16px;margin-top:40px;">
+        <div style="background:rgba(255,255,255,0.06);border-radius:20px;padding:24px 32px;text-align:center;border:1px solid rgba(255,255,255,0.06);">
+            <p style="color:rgba(255,255,255,0.7);font-size:14px;margin-bottom:16px;">📱 扫码注册 / 登录借阅</p>
+            <img src="/static/img/qrcode.png" alt="扫码访问" style="width:180px;height:180px;border-radius:12px;background:white;padding:8px;">
+            <p style="color:rgba(255,255,255,0.45);font-size:12px;margin-top:12px;">http://121.40.116.75/reader</p>
+        </div>
+        <span style="color:rgba(255,255,255,0.3);font-size:13px;">开放图书馆 · 让知识自由流动</span>
+    </div>
 </body>
 </html>
